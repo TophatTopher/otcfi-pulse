@@ -1,0 +1,1281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OTCfi Pulse Beta</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+  <style>
+    :root {
+      --bg-primary: #0a0a12;
+      --bg-secondary: #0f0f1a;
+      --bg-card: #151520;
+      --bg-card-hover: #1a1a28;
+      --bg-input: #1a1a28;
+      --accent-purple: #a855f7;
+      --accent-purple-dim: #7c3aed;
+      --accent-magenta: #c026d3;
+      --accent-cyan: #06b6d4;
+      --accent-green: #22c55e;
+      --accent-red: #ef4444;
+      --text-primary: #ffffff;
+      --text-secondary: #9ca3af;
+      --text-muted: #6b7280;
+      --border-color: #252532;
+      --border-light: #2a2a3a;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      line-height: 1.5;
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1rem 2rem;
+      border-bottom: 1px solid var(--border-color);
+      background: var(--bg-primary);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .logo { display: flex; align-items: baseline; font-size: 1.5rem; font-weight: 700; }
+    .logo-otc { color: var(--text-primary); }
+    .logo-fi { color: var(--accent-cyan); }
+    .logo-pulse { font-size: 0.7rem; color: var(--accent-purple); margin-left: 2px; font-weight: 600; }
+    .nav { display: flex; gap: 2rem; }
+    .nav-link {
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-size: 0.95rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: color 0.2s;
+      background: none;
+      border: none;
+      font-family: inherit;
+    }
+    .nav-link:hover, .nav-link.active { color: var(--text-primary); }
+    .header-right { display: flex; align-items: center; gap: 1rem; }
+    .balance-btn {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 0.6rem 1rem;
+      color: var(--text-primary);
+      font-weight: 600;
+      font-size: 0.9rem;
+    }
+    .user-btn {
+      width: 40px;
+      height: 40px;
+      border-radius: 8px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 1.2rem;
+    }
+    .user-btn:hover { border-color: var(--accent-purple); color: var(--text-primary); }
+    .main { max-width: 1300px; margin: 0 auto; padding: 2rem; }
+    .page-title { font-size: 2rem; font-weight: 600; margin-bottom: 0.5rem; }
+    .page-subtitle { color: var(--text-secondary); font-size: 1rem; margin-bottom: 2rem; }
+    .stats-row { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 2rem; gap: 2rem; }
+    .stat-group { display: flex; flex-direction: column; gap: 0.25rem; }
+    .stat-label { font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    .stat-value { font-size: 1.75rem; font-weight: 600; }
+    .category-filters { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
+    .category-pill {
+      padding: 0.5rem 1rem;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      cursor: pointer;
+      border: 1px solid var(--border-color);
+      background: transparent;
+      color: var(--text-secondary);
+      font-family: inherit;
+      transition: all 0.2s;
+    }
+    .category-pill:hover { border-color: var(--text-muted); color: var(--text-primary); }
+    .category-pill.active { background: var(--accent-purple); border-color: var(--accent-purple); color: white; }
+    .market-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 1rem; }
+    .market-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 1.25rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .market-card:hover { border-color: var(--border-light); background: var(--bg-card-hover); }
+    .market-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; }
+    .market-ticker-row { display: flex; align-items: center; gap: 0.75rem; }
+    .ticker-badge {
+      background: var(--bg-input);
+      border: 1px solid var(--border-light);
+      border-radius: 6px;
+      padding: 0.3rem 0.5rem;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+    .category-badge {
+      background: rgba(168, 85, 247, 0.15);
+      border: 1px solid rgba(168, 85, 247, 0.3);
+      border-radius: 6px;
+      padding: 0.3rem 0.5rem;
+      font-size: 0.7rem;
+      font-weight: 600;
+      color: var(--accent-purple);
+      text-transform: uppercase;
+    }
+    .market-company { font-size: 0.85rem; color: var(--text-secondary); }
+    .market-date { font-size: 0.8rem; color: var(--text-muted); }
+    .market-title { font-size: 1rem; font-weight: 500; margin-bottom: 0.75rem; line-height: 1.4; }
+    .market-footer { display: flex; justify-content: space-between; align-items: center; }
+    .market-meta { display: flex; gap: 1rem; font-size: 0.8rem; color: var(--text-muted); }
+    .market-odds { display: flex; gap: 0.5rem; }
+    .odds-pill { padding: 0.3rem 0.6rem; border-radius: 6px; font-size: 0.8rem; font-weight: 600; }
+    .odds-yes { background: rgba(34, 197, 94, 0.15); color: var(--accent-green); border: 1px solid rgba(34, 197, 94, 0.3); }
+    .odds-no { background: rgba(239, 68, 68, 0.15); color: var(--accent-red); border: 1px solid rgba(239, 68, 68, 0.3); }
+    .bet-status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.4rem 0.75rem;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      font-weight: 500;
+    }
+    .bet-available { background: rgba(34, 197, 94, 0.15); color: var(--accent-green); border: 1px solid rgba(34, 197, 94, 0.3); }
+    .bet-used { background: rgba(239, 68, 68, 0.15); color: var(--accent-red); border: 1px solid rgba(239, 68, 68, 0.3); }
+    .modal-overlay {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0, 0, 0, 0.8);
+      backdrop-filter: blur(4px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      padding: 2rem;
+      animation: fadeIn 0.2s ease;
+    }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    .modal-content {
+      background: var(--bg-primary);
+      border-radius: 16px;
+      width: 100%;
+      max-width: 700px;
+      max-height: 90vh;
+      overflow-y: auto;
+      animation: slideUp 0.3s ease;
+    }
+    @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    .modal-header { padding: 1.5rem; border-bottom: 1px solid var(--border-color); }
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+      margin-bottom: 1rem;
+      cursor: pointer;
+      background: none;
+      border: none;
+      font-family: inherit;
+    }
+    .back-link:hover { color: var(--text-primary); }
+    .detail-header { display: flex; align-items: flex-start; gap: 1rem; }
+    .detail-ticker {
+      width: 50px;
+      height: 50px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 0.8rem;
+      color: var(--accent-purple);
+    }
+    .detail-info h2 { font-size: 0.9rem; color: var(--text-muted); font-weight: 400; margin-bottom: 0.25rem; }
+    .detail-info h1 { font-size: 1.25rem; font-weight: 600; }
+    .detail-tags { display: flex; gap: 0.5rem; margin-top: 1rem; flex-wrap: wrap; }
+    .detail-tag {
+      padding: 0.4rem 0.75rem;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+    }
+    .detail-body { padding: 1.5rem; }
+    .resolution-text { color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 1.5rem; }
+    .market-odds-section {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 1.25rem;
+      margin-bottom: 1.5rem;
+    }
+    .market-odds-title { font-weight: 600; margin-bottom: 1rem; }
+    .odds-display { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    .odds-box { background: var(--bg-input); border-radius: 8px; padding: 1rem; }
+    .odds-box-label { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.25rem; }
+    .odds-box-value { font-size: 1.5rem; font-weight: 600; }
+    .odds-box-value.yes { color: var(--accent-green); }
+    .odds-box-value.no { color: var(--accent-red); }
+    .wager-section {
+      background: linear-gradient(135deg, rgba(168, 85, 247, 0.15), rgba(192, 38, 211, 0.1));
+      border: 1px solid rgba(168, 85, 247, 0.3);
+      border-radius: 12px;
+      padding: 1.5rem;
+    }
+    .wager-title { font-weight: 600; margin-bottom: 0.5rem; }
+    .wager-balance { font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 1rem; }
+    .bet-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 1rem; }
+    .bet-btn {
+      padding: 0.9rem;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+      transition: all 0.2s;
+    }
+    .bet-btn-yes { background: var(--accent-purple); border: none; color: white; }
+    .bet-btn-yes:hover:not(:disabled) { background: var(--accent-purple-dim); }
+    .bet-btn-no { background: transparent; border: 1px solid var(--border-light); color: var(--text-primary); }
+    .bet-btn-no:hover:not(:disabled) { background: var(--bg-card); }
+    .bet-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .bet-btn.selected { box-shadow: 0 0 0 2px var(--accent-purple); }
+    .wager-info { background: var(--bg-input); border-radius: 8px; padding: 1rem; margin-bottom: 1rem; }
+    .wager-info-row { display: flex; justify-content: space-between; font-size: 0.9rem; margin-bottom: 0.5rem; }
+    .wager-info-row:last-child { margin-bottom: 0; }
+    .wager-info-label { color: var(--text-muted); }
+    .wager-info-value { font-weight: 500; }
+    .wager-info-value.yes { color: var(--accent-green); }
+    .wager-info-value.no { color: var(--accent-red); }
+    .place-wager-btn {
+      width: 100%;
+      padding: 1rem;
+      background: linear-gradient(135deg, var(--accent-purple), var(--accent-magenta));
+      border: none;
+      border-radius: 8px;
+      color: white;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+      transition: all 0.2s;
+    }
+    .place-wager-btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 20px rgba(168, 85, 247, 0.4); }
+    .place-wager-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .demo-notice { text-align: center; font-size: 0.8rem; color: var(--text-muted); margin-top: 1rem; }
+    .login-container { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 2rem; }
+    .login-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 2.5rem;
+      width: 100%;
+      max-width: 400px;
+      text-align: center;
+    }
+    .login-subtitle { color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 2rem; }
+    .login-btn, .btn-primary {
+      width: 100%;
+      padding: 1rem;
+      background: linear-gradient(135deg, var(--accent-purple), var(--accent-magenta));
+      border: none;
+      border-radius: 8px;
+      color: white;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+      transition: all 0.2s;
+    }
+    .login-btn:hover, .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 20px rgba(168, 85, 247, 0.4); }
+    .login-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .form-group { margin-bottom: 1.25rem; text-align: left; }
+    .form-label { display: block; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.5rem; }
+    .form-input, .form-select, .form-textarea {
+      width: 100%;
+      padding: 0.85rem 1rem;
+      background: var(--bg-input);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      color: var(--text-primary);
+      font-family: inherit;
+      font-size: 1rem;
+      transition: border-color 0.2s;
+    }
+    .form-input:focus, .form-select:focus, .form-textarea:focus { outline: none; border-color: var(--accent-purple); }
+    .form-input::placeholder { color: var(--text-muted); }
+    .form-textarea { min-height: 100px; resize: vertical; }
+    .leaderboard {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    .leaderboard-header {
+      padding: 1rem 1.25rem;
+      border-bottom: 1px solid var(--border-color);
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .leaderboard-row {
+      display: flex;
+      align-items: center;
+      padding: 0.9rem 1.25rem;
+      border-bottom: 1px solid var(--border-color);
+      transition: background 0.2s;
+    }
+    .leaderboard-row:last-child { border-bottom: none; }
+    .leaderboard-row:hover { background: var(--bg-card-hover); }
+    .leaderboard-rank { width: 32px; font-weight: 700; color: var(--text-muted); }
+    .leaderboard-rank.gold { color: #fbbf24; }
+    .leaderboard-rank.silver { color: #9ca3af; }
+    .leaderboard-rank.bronze { color: #d97706; }
+    .leaderboard-user { flex: 1; display: flex; align-items: center; gap: 0.75rem; }
+    .leaderboard-avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 6px;
+      background: linear-gradient(135deg, var(--accent-purple), var(--accent-cyan));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      font-size: 0.75rem;
+      color: white;
+    }
+    .leaderboard-name { font-weight: 500; }
+    .leaderboard-stats { display: flex; gap: 2rem; font-size: 0.9rem; }
+    .leaderboard-wins { color: var(--accent-green); }
+    .leaderboard-earnings { color: var(--accent-purple); }
+    .admin-section {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 1.25rem;
+      margin-bottom: 1.5rem;
+    }
+    .admin-section-title { font-weight: 600; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem; }
+    .pending-item {
+      background: var(--bg-input);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 1rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 0.75rem;
+    }
+    .pending-item:last-child { margin-bottom: 0; }
+    .pending-info { flex: 1; }
+    .pending-title { font-weight: 500; margin-bottom: 0.25rem; }
+    .pending-meta { font-size: 0.8rem; color: var(--text-muted); }
+    .pending-actions { display: flex; gap: 0.5rem; }
+    .btn-sm {
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      font-weight: 500;
+      cursor: pointer;
+      font-family: inherit;
+      transition: all 0.2s;
+    }
+    .btn-approve { background: rgba(34, 197, 94, 0.15); border: 1px solid rgba(34, 197, 94, 0.3); color: var(--accent-green); }
+    .btn-approve:hover { background: var(--accent-green); color: white; }
+    .btn-reject { background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.3); color: var(--accent-red); }
+    .btn-reject:hover { background: var(--accent-red); color: white; }
+    .create-modal {
+      background: var(--bg-card);
+      border-radius: 16px;
+      width: 100%;
+      max-width: 500px;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+    .create-modal-header {
+      padding: 1.25rem 1.5rem;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .create-modal-title { font-size: 1.1rem; font-weight: 600; }
+    .close-btn { background: none; border: none; color: var(--text-muted); font-size: 1.5rem; cursor: pointer; line-height: 1; }
+    .close-btn:hover { color: var(--text-primary); }
+    .create-modal-body { padding: 1.5rem; }
+    .create-modal-footer {
+      padding: 1rem 1.5rem;
+      border-top: 1px solid var(--border-color);
+      display: flex;
+      gap: 0.75rem;
+      justify-content: flex-end;
+    }
+    .btn {
+      padding: 0.75rem 1.25rem;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-weight: 500;
+      cursor: pointer;
+      font-family: inherit;
+      transition: all 0.2s;
+    }
+    .btn-secondary { background: transparent; border: 1px solid var(--border-color); color: var(--text-primary); }
+    .btn-secondary:hover { background: var(--bg-card-hover); border-color: var(--text-muted); }
+    .toast-container { position: fixed; top: 1rem; right: 1rem; z-index: 2000; display: flex; flex-direction: column; gap: 0.5rem; }
+    .toast {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 1rem 1.25rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+      animation: slideIn 0.3s ease;
+    }
+    @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+    .toast-success { border-color: var(--accent-green); }
+    .toast-error { border-color: var(--accent-red); }
+    .toast-icon { font-size: 1.1rem; }
+    .toast-success .toast-icon { color: var(--accent-green); }
+    .toast-error .toast-icon { color: var(--accent-red); }
+    .empty-state { text-align: center; padding: 4rem 2rem; color: var(--text-muted); }
+    .empty-state-icon { font-size: 3rem; margin-bottom: 1rem; opacity: 0.5; }
+    .empty-state-title { font-size: 1.1rem; font-weight: 500; color: var(--text-primary); margin-bottom: 0.5rem; }
+    .suggest-btn {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.6rem 1rem;
+      background: var(--accent-purple);
+      border: none;
+      border-radius: 8px;
+      color: white;
+      font-size: 0.85rem;
+      font-weight: 500;
+      cursor: pointer;
+      font-family: inherit;
+      transition: all 0.2s;
+    }
+    .suggest-btn:hover { background: var(--accent-purple-dim); }
+    .already-bet-notice {
+      text-align: center;
+      padding: 1rem;
+      background: var(--bg-input);
+      border-radius: 8px;
+      color: var(--text-secondary);
+    }
+    .already-bet-notice strong { color: var(--accent-green); }
+    .category-select-group { display: flex; gap: 0.5rem; margin-bottom: 1.25rem; }
+    .category-select-btn {
+      flex: 1;
+      padding: 0.75rem;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-weight: 500;
+      cursor: pointer;
+      font-family: inherit;
+      transition: all 0.2s;
+      background: var(--bg-input);
+      border: 1px solid var(--border-color);
+      color: var(--text-secondary);
+    }
+    .category-select-btn:hover { border-color: var(--text-muted); color: var(--text-primary); }
+    .category-select-btn.active { background: var(--accent-purple); border-color: var(--accent-purple); color: white; }
+    .confirm-modal {
+      background: var(--bg-card);
+      border-radius: 16px;
+      width: 100%;
+      max-width: 400px;
+      padding: 2rem;
+      text-align: center;
+    }
+    .confirm-icon { font-size: 3rem; margin-bottom: 1rem; }
+    .confirm-title { font-size: 1.25rem; font-weight: 600; margin-bottom: 0.5rem; }
+    .confirm-message { color: var(--text-secondary); margin-bottom: 1.5rem; font-size: 0.95rem; }
+    .confirm-details { background: var(--bg-input); border-radius: 8px; padding: 1rem; margin-bottom: 1.5rem; text-align: left; }
+    .confirm-detail-row { display: flex; justify-content: space-between; margin-bottom: 0.5rem; font-size: 0.9rem; }
+    .confirm-detail-row:last-child { margin-bottom: 0; }
+    .confirm-detail-label { color: var(--text-muted); }
+    .confirm-detail-value { font-weight: 500; }
+    .confirm-detail-value.yes { color: var(--accent-green); }
+    .confirm-detail-value.no { color: var(--accent-red); }
+    .confirm-buttons { display: flex; gap: 0.75rem; }
+    .confirm-buttons .btn { flex: 1; }
+    .confirm-warning { color: var(--accent-red); font-size: 0.85rem; margin-top: 1rem; }
+    .loading { text-align: center; padding: 4rem; color: var(--text-muted); }
+    .loading-spinner { font-size: 2rem; animation: spin 1s linear infinite; display: inline-block; margin-bottom: 1rem; }
+    @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    @media (max-width: 768px) {
+      .header { padding: 1rem; flex-wrap: wrap; gap: 1rem; }
+      .nav { order: 3; width: 100%; justify-content: center; gap: 1.5rem; }
+      .main { padding: 1rem; }
+      .market-grid { grid-template-columns: 1fr; }
+      .stats-row { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script type="text/babel">
+    const { useState, useEffect, createContext, useContext } = React;
+
+    // Supabase Configuration
+    const SUPABASE_URL = 'https://dopwnybfryhmxrrxrkdn.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRvcHdueWJmcnlobXhycnhya2RuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzc0OTg4NDEsImV4cCI6MjA1MzA3NDg0MX0.Lx4ByMKa9rzNdFpGO5Y9G9f2v6fHj8V0f0JCdLpsS7U';
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    const AppContext = createContext();
+    const categories = ["All", "Price", "Events", "Other"];
+
+    const getTodayDate = () => {
+      const today = new Date();
+      today.setDate(today.getDate() + 1);
+      return today.toISOString().split('T')[0];
+    };
+
+    const formatDate = (dateStr) => {
+      const date = new Date(dateStr);
+      return date.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: 'numeric' });
+    };
+
+    function Toast({ message, type, onClose }) {
+      useEffect(() => { const t = setTimeout(onClose, 3000); return () => clearTimeout(t); }, [onClose]);
+      return (<div className={`toast toast-${type}`}><span className="toast-icon">{type === 'success' ? '✓' : '✗'}</span><span>{message}</span></div>);
+    }
+
+    function ConfirmModal({ title, message, details, onConfirm, onCancel, confirmText = "Confirm", cancelText = "Cancel", icon = "⚠️", warning }) {
+      return (
+        <div className="modal-overlay" onClick={onCancel}>
+          <div className="confirm-modal" onClick={e => e.stopPropagation()}>
+            <div className="confirm-icon">{icon}</div>
+            <h2 className="confirm-title">{title}</h2>
+            <p className="confirm-message">{message}</p>
+            {details && (
+              <div className="confirm-details">
+                {details.map((detail, i) => (
+                  <div key={i} className="confirm-detail-row">
+                    <span className="confirm-detail-label">{detail.label}</span>
+                    <span className={`confirm-detail-value ${detail.className || ''}`}>{detail.value}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="confirm-buttons">
+              <button className="btn btn-secondary" onClick={onCancel}>{cancelText}</button>
+              <button className="btn btn-primary" style={{width: 'auto'}} onClick={onConfirm}>{confirmText}</button>
+            </div>
+            {warning && <p className="confirm-warning">{warning}</p>}
+          </div>
+        </div>
+      );
+    }
+
+    function Login({ onLogin }) {
+      const [username, setUsername] = useState('');
+      const [loading, setLoading] = useState(false);
+      const [error, setError] = useState('');
+
+      const handleSubmit = async (e) => {
+        e.preventDefault();
+        if (!username.trim()) return;
+        
+        setLoading(true);
+        setError('');
+
+        try {
+          // Check if user exists
+          let { data: existingUser, error: fetchError } = await supabase
+            .from('users')
+            .select('*')
+            .eq('username', username.trim().toLowerCase())
+            .single();
+
+          if (fetchError && fetchError.code !== 'PGRST116') {
+            throw fetchError;
+          }
+
+          if (existingUser) {
+            onLogin(existingUser);
+          } else {
+            // Create new user
+            const { data: newUser, error: insertError } = await supabase
+              .from('users')
+              .insert([{ username: username.trim().toLowerCase() }])
+              .select()
+              .single();
+
+            if (insertError) throw insertError;
+            onLogin(newUser);
+          }
+        } catch (err) {
+          console.error('Login error:', err);
+          setError('Failed to login. Please try again.');
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      return (
+        <div className="login-container">
+          <div className="login-card">
+            <div className="logo" style={{ justifyContent: 'center', marginBottom: '1.5rem', fontSize: '2rem' }}>
+              <span className="logo-otc">OTC</span><span className="logo-fi">fi</span><span className="logo-pulse">Pulse</span>
+            </div>
+            <p className="login-subtitle">This is a demo interface for OTC stock outcome trading. No real-money wagers. Enter a username to continue.</p>
+            <form onSubmit={handleSubmit}>
+              <div className="form-group">
+                <label className="form-label">Username</label>
+                <input 
+                  type="text" 
+                  className="form-input" 
+                  placeholder="Enter username" 
+                  value={username} 
+                  onChange={(e) => setUsername(e.target.value)} 
+                  required 
+                  disabled={loading}
+                />
+              </div>
+              {error && <p style={{ color: 'var(--accent-red)', marginBottom: '1rem', fontSize: '0.9rem' }}>{error}</p>}
+              <button type="submit" className="login-btn" disabled={loading}>
+                {loading ? 'Loading...' : 'Enter Pulse'}
+              </button>
+            </form>
+          </div>
+        </div>
+      );
+    }
+
+    function Header({ user, activePage, setActivePage, onLogout }) {
+      return (
+        <header className="header">
+          <div className="logo"><span className="logo-otc">OTC</span><span className="logo-fi">fi</span><span className="logo-pulse">Pulse</span></div>
+          <nav className="nav">
+            <button className={`nav-link ${activePage === 'markets' ? 'active' : ''}`} onClick={() => setActivePage('markets')}>Markets</button>
+            <button className={`nav-link ${activePage === 'portfolio' ? 'active' : ''}`} onClick={() => setActivePage('portfolio')}>Portfolio</button>
+            <button className={`nav-link ${activePage === 'leaderboard' ? 'active' : ''}`} onClick={() => setActivePage('leaderboard')}>Leaderboard</button>
+            {user.is_admin && <button className={`nav-link ${activePage === 'admin' ? 'active' : ''}`} onClick={() => setActivePage('admin')}>Admin</button>}
+          </nav>
+          <div className="header-right">
+            <div className="balance-btn"><span>👤</span><span>{user.username}</span></div>
+            <button className="user-btn" onClick={onLogout} title="Logout">🚪</button>
+          </div>
+        </header>
+      );
+    }
+
+    function MarketCard({ market, onClick }) {
+      const isPriceMarket = market.category === 'Price';
+      return (
+        <div className="market-card" onClick={() => onClick(market)}>
+          <div className="market-header">
+            <div className="market-ticker-row">
+              {isPriceMarket ? (
+                <><span className="ticker-badge">{market.ticker}</span><span className="market-company">{market.company}</span></>
+              ) : (
+                <span className="category-badge">{market.category}</span>
+              )}
+            </div>
+            <span className="market-date">Ends {formatDate(market.ends_at)}</span>
+          </div>
+          <h3 className="market-title">{market.title}</h3>
+          <div className="market-footer">
+            <div className="market-meta"><span>Vol: {market.volume?.toLocaleString() || 0}</span></div>
+            <div className="market-odds"><span className="odds-pill odds-yes">Yes {market.yes_percent}%</span><span className="odds-pill odds-no">No {market.no_percent}%</span></div>
+          </div>
+        </div>
+      );
+    }
+
+    function MarketDetail({ market, onClose, onBet, weeklyBetUsed, userBet }) {
+      const [selectedSide, setSelectedSide] = useState('yes');
+      const [showConfirm, setShowConfirm] = useState(false);
+      const isPriceMarket = market.category === 'Price';
+
+      const handleConfirmWager = () => {
+        onBet(market.id, selectedSide);
+        setShowConfirm(false);
+      };
+
+      return (
+        <>
+          <div className="modal-overlay" onClick={onClose}>
+            <div className="modal-content" onClick={e => e.stopPropagation()}>
+              <div className="modal-header">
+                <button className="back-link" onClick={onClose}>← Back to markets</button>
+                <div className="detail-header">
+                  <div className="detail-ticker">{isPriceMarket ? market.ticker : market.category.charAt(0)}</div>
+                  <div className="detail-info">
+                    <h2>{isPriceMarket ? market.company : market.category}</h2>
+                    <h1>{market.title}</h1>
+                  </div>
+                </div>
+                <div className="detail-tags">
+                  <span className="detail-tag">Category: {market.category}</span>
+                  <span className="detail-tag">Ends: {formatDate(market.ends_at)}</span>
+                  <span className="detail-tag">Volume: {market.volume?.toLocaleString() || 0}</span>
+                </div>
+              </div>
+              <div className="detail-body">
+                <p className="resolution-text">{market.resolution}</p>
+                <div className="market-odds-section">
+                  <h3 className="market-odds-title">Market Odds</h3>
+                  <div className="odds-display">
+                    <div className="odds-box"><div className="odds-box-label">Yes</div><div className="odds-box-value yes">{market.yes_percent}%</div></div>
+                    <div className="odds-box"><div className="odds-box-label">No</div><div className="odds-box-value no">{market.no_percent}%</div></div>
+                  </div>
+                </div>
+                <div className="wager-section">
+                  <h3 className="wager-title">Place Wager</h3>
+                  <p className="wager-balance">{weeklyBetUsed ? <span className="bet-status-badge bet-used">Weekly bet used</span> : <span className="bet-status-badge bet-available">1 free bet available this week</span>}</p>
+                  {userBet ? (
+                    <div className="already-bet-notice">You already bet <strong>{userBet.side.toUpperCase()}</strong> on this market. Good luck! 🎯</div>
+                  ) : (
+                    <>
+                      <div className="bet-buttons">
+                        <button className={`bet-btn bet-btn-yes ${selectedSide === 'yes' ? 'selected' : ''}`} onClick={() => setSelectedSide('yes')} disabled={weeklyBetUsed}>Bet YES</button>
+                        <button className={`bet-btn bet-btn-no ${selectedSide === 'no' ? 'selected' : ''}`} onClick={() => setSelectedSide('no')} disabled={weeklyBetUsed}>Bet NO</button>
+                      </div>
+                      <div className="wager-info">
+                        <div className="wager-info-row"><span className="wager-info-label">Selected side</span><span className={`wager-info-value ${selectedSide}`}>{selectedSide.toUpperCase()}</span></div>
+                        <div className="wager-info-row"><span className="wager-info-label">Potential reward</span><span className="wager-info-value">1,000 OTCfi</span></div>
+                      </div>
+                      <button className="place-wager-btn" onClick={() => setShowConfirm(true)} disabled={weeklyBetUsed}>Place Wager</button>
+                    </>
+                  )}
+                  <p className="demo-notice">This is a demo interface for OTCfi Pulse. Wagers are simulated credits only and do not represent real-money trading.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {showConfirm && (
+            <ConfirmModal
+              icon="🎯"
+              title="Confirm Your Wager"
+              message="Are you sure you want to place this bet? This will use your weekly wager."
+              details={[
+                { label: "Market", value: market.title.length > 40 ? market.title.substring(0, 40) + '...' : market.title },
+                { label: "Your Pick", value: selectedSide.toUpperCase(), className: selectedSide },
+                { label: "Potential Reward", value: "1,000 OTCfi" }
+              ]}
+              warning="⚠️ You can only place 1 bet per week"
+              confirmText="Place Wager"
+              onConfirm={handleConfirmWager}
+              onCancel={() => setShowConfirm(false)}
+            />
+          )}
+        </>
+      );
+    }
+
+    function CreateModal({ onClose, onSubmit, user }) {
+      const [category, setCategory] = useState('Price');
+      const [title, setTitle] = useState('');
+      const [ticker, setTicker] = useState('');
+      const [company, setCompany] = useState('');
+      const [endsAt, setEndsAt] = useState('');
+      const [showConfirm, setShowConfirm] = useState(false);
+      const [loading, setLoading] = useState(false);
+
+      const isPriceCategory = category === 'Price';
+      const minDate = getTodayDate();
+
+      const handleSubmit = (e) => {
+        e.preventDefault();
+        setShowConfirm(true);
+      };
+
+      const handleConfirmSubmit = async () => {
+        setLoading(true);
+        const data = {
+          title,
+          category,
+          ticker: isPriceCategory ? ticker.toUpperCase() : null,
+          company: isPriceCategory ? company : null,
+          ends_at: endsAt,
+          created_by: user.id
+        };
+        await onSubmit(data);
+        setShowConfirm(false);
+        setLoading(false);
+        onClose();
+      };
+
+      const formattedDate = endsAt ? new Date(endsAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : '';
+
+      return (
+        <>
+          <div className="modal-overlay" onClick={onClose}>
+            <div className="create-modal" onClick={e => e.stopPropagation()}>
+              <div className="create-modal-header">
+                <h2 className="create-modal-title">Suggest a Prediction</h2>
+                <button className="close-btn" onClick={onClose}>×</button>
+              </div>
+              <form onSubmit={handleSubmit}>
+                <div className="create-modal-body">
+                  <div className="form-group">
+                    <label className="form-label">Category</label>
+                    <div className="category-select-group">
+                      {['Price', 'Events', 'Other'].map(cat => (
+                        <button key={cat} type="button" className={`category-select-btn ${category === cat ? 'active' : ''}`} onClick={() => setCategory(cat)}>{cat}</button>
+                      ))}
+                    </div>
+                  </div>
+                  {isPriceCategory && (
+                    <>
+                      <div className="form-group">
+                        <label className="form-label">Ticker Symbol</label>
+                        <input type="text" className="form-input" placeholder="e.g., MVCO" value={ticker} onChange={(e) => setTicker(e.target.value)} maxLength={5} required />
+                      </div>
+                      <div className="form-group">
+                        <label className="form-label">Company Name</label>
+                        <input type="text" className="form-input" placeholder="e.g., Metavesco Inc" value={company} onChange={(e) => setCompany(e.target.value)} required />
+                      </div>
+                    </>
+                  )}
+                  <div className="form-group">
+                    <label className="form-label">{isPriceCategory ? 'Prediction Question' : 'Prediction Title'}</label>
+                    <textarea className="form-textarea" placeholder={isPriceCategory ? "e.g., Will MVCO close above $0.01 this week?" : "e.g., New partnership announced this month"} value={title} onChange={(e) => setTitle(e.target.value)} required />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Resolution Date</label>
+                    <input type="date" className="form-input" value={endsAt} onChange={(e) => setEndsAt(e.target.value)} min={minDate} required />
+                  </div>
+                </div>
+                <div className="create-modal-footer">
+                  <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
+                  <button type="submit" className="btn btn-primary" style={{width:'auto'}}>Submit for Review</button>
+                </div>
+              </form>
+            </div>
+          </div>
+
+          {showConfirm && (
+            <ConfirmModal
+              icon="📝"
+              title="Submit Prediction?"
+              message="Your prediction will be sent to admins for review before going live."
+              details={[
+                { label: "Category", value: category },
+                ...(isPriceCategory ? [{ label: "Ticker", value: ticker.toUpperCase() }] : []),
+                { label: "Prediction", value: title.length > 50 ? title.substring(0, 50) + '...' : title },
+                { label: "Resolution Date", value: formattedDate }
+              ]}
+              confirmText={loading ? "Submitting..." : "Submit Prediction"}
+              onConfirm={handleConfirmSubmit}
+              onCancel={() => setShowConfirm(false)}
+            />
+          )}
+        </>
+      );
+    }
+
+    function MarketsPage({ markets, onMarketClick, onCreateClick, weeklyBetUsed, loading }) {
+      const [activeCategory, setActiveCategory] = useState('All');
+      const filtered = markets.filter(m => activeCategory === 'All' || m.category === activeCategory);
+      
+      if (loading) {
+        return <main className="main"><div className="loading"><div className="loading-spinner">⟳</div><p>Loading markets...</p></div></main>;
+      }
+
+      return (
+        <main className="main">
+          <h1 className="page-title">Trade OTC Stock Outcomes</h1>
+          <p className="page-subtitle">Predict price movements, events, and more. Win 1,000 OTCfi for each correct prediction!</p>
+          <div className="stats-row">
+            <div style={{ display: 'flex', gap: '3rem' }}>
+              <div className="stat-group"><span className="stat-label">Available Balance</span><span className="stat-value">10,000 credits</span></div>
+              <div className="stat-group"><span className="stat-label">Weekly Bet</span><span className={`bet-status-badge ${weeklyBetUsed ? 'bet-used' : 'bet-available'}`}>{weeklyBetUsed ? '✗ Used' : '✓ Available'}</span></div>
+            </div>
+            <div><button className="suggest-btn" onClick={onCreateClick}>+ Suggest Prediction</button></div>
+          </div>
+          <div className="category-filters">{categories.map(cat => <button key={cat} className={`category-pill ${activeCategory === cat ? 'active' : ''}`} onClick={() => setActiveCategory(cat)}>{cat}</button>)}</div>
+          <div className="market-grid">{filtered.map(market => <MarketCard key={market.id} market={market} onClick={onMarketClick} />)}</div>
+          {filtered.length === 0 && <div className="empty-state"><div className="empty-state-icon">📊</div><div className="empty-state-title">No markets found</div><p>Try selecting a different category.</p></div>}
+        </main>
+      );
+    }
+
+    function PortfolioPage({ userBets, markets }) {
+      const userMarkets = markets.filter(m => userBets.find(b => b.market_id === m.id));
+      return (
+        <main className="main">
+          <h1 className="page-title">Portfolio</h1>
+          <p className="page-subtitle">Track your active predictions and past performance.</p>
+          {userMarkets.length === 0 ? (
+            <div className="empty-state"><div className="empty-state-icon">📈</div><div className="empty-state-title">No positions yet</div><p>Click a market to place your first trade.</p></div>
+          ) : (
+            <><h2 style={{ marginBottom: '1rem', fontSize: '1.1rem' }}>Open Positions</h2>
+            <div className="market-grid">{userMarkets.map(market => {
+              const bet = userBets.find(b => b.market_id === market.id);
+              return (
+                <div key={market.id} className="market-card">
+                  <div className="market-header">
+                    <div className="market-ticker-row">
+                      {market.category === 'Price' ? (
+                        <><span className="ticker-badge">{market.ticker}</span><span className="market-company">{market.company}</span></>
+                      ) : (
+                        <span className="category-badge">{market.category}</span>
+                      )}
+                    </div>
+                    <span className={`bet-status-badge ${bet?.side === 'yes' ? 'bet-available' : 'bet-used'}`}>{bet?.side?.toUpperCase()}</span>
+                  </div>
+                  <h3 className="market-title">{market.title}</h3>
+                  <div className="market-footer"><div className="market-meta"><span>Ends {formatDate(market.ends_at)}</span></div><div className="market-meta"><span>Reward: 1,000 OTCfi</span></div></div>
+                </div>
+              );
+            })}</div></>
+          )}
+        </main>
+      );
+    }
+
+    function LeaderboardPage({ leaderboard, loading }) {
+      if (loading) {
+        return <main className="main"><div className="loading"><div className="loading-spinner">⟳</div><p>Loading leaderboard...</p></div></main>;
+      }
+
+      return (
+        <main className="main">
+          <h1 className="page-title">Leaderboard</h1>
+          <p className="page-subtitle">Top predictors ranked by wins and earnings.</p>
+          <div className="leaderboard">
+            <div className="leaderboard-header">🏆 Top Predictors</div>
+            {leaderboard.length === 0 ? (
+              <div className="leaderboard-row"><span style={{ color: 'var(--text-muted)' }}>No users yet. Be the first!</span></div>
+            ) : (
+              leaderboard.map((user, i) => (
+                <div key={user.id} className="leaderboard-row">
+                  <span className={`leaderboard-rank ${i === 0 ? 'gold' : i === 1 ? 'silver' : i === 2 ? 'bronze' : ''}`}>#{i + 1}</span>
+                  <div className="leaderboard-user">
+                    <div className="leaderboard-avatar">{user.username.substring(0, 2).toUpperCase()}</div>
+                    <span className="leaderboard-name">{user.username}</span>
+                  </div>
+                  <div className="leaderboard-stats">
+                    <span className="leaderboard-wins">{user.total_wins || 0} wins</span>
+                    <span className="leaderboard-earnings">{(user.total_earnings || 0).toLocaleString()} OTCfi</span>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </main>
+      );
+    }
+
+    function AdminPage({ pendingPredictions, onApprove, onReject, markets, onResolve, loading }) {
+      if (loading) {
+        return <main className="main"><div className="loading"><div className="loading-spinner">⟳</div><p>Loading admin panel...</p></div></main>;
+      }
+
+      return (
+        <main className="main">
+          <h1 className="page-title">Admin Panel</h1>
+          <p className="page-subtitle">Manage predictions and resolve markets.</p>
+          <div className="admin-section">
+            <h3 className="admin-section-title">📋 Pending Predictions ({pendingPredictions.length})</h3>
+            {pendingPredictions.length === 0 ? <p style={{ color: 'var(--text-muted)' }}>No pending predictions</p> : pendingPredictions.map(pred => (
+              <div key={pred.id} className="pending-item">
+                <div className="pending-info">
+                  <div className="pending-title">{pred.ticker ? `${pred.ticker} - ` : ''}{pred.title}</div>
+                  <div className="pending-meta">{pred.category} • Ends {formatDate(pred.ends_at)}</div>
+                </div>
+                <div className="pending-actions">
+                  <button className="btn-sm btn-approve" onClick={() => onApprove(pred)}>Approve</button>
+                  <button className="btn-sm btn-reject" onClick={() => onReject(pred.id)}>Reject</button>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="admin-section">
+            <h3 className="admin-section-title">✅ Resolve Active Markets</h3>
+            {markets.length === 0 ? <p style={{ color: 'var(--text-muted)' }}>No active markets</p> : markets.map(market => (
+              <div key={market.id} className="pending-item">
+                <div className="pending-info">
+                  <div className="pending-title">{market.ticker ? `${market.ticker} - ` : ''}{market.title}</div>
+                  <div className="pending-meta">{market.category} • Ends {formatDate(market.ends_at)} • Vol: {market.volume?.toLocaleString() || 0}</div>
+                </div>
+                <div className="pending-actions">
+                  <button className="btn-sm btn-approve" onClick={() => onResolve(market.id, 'yes')}>YES Won</button>
+                  <button className="btn-sm btn-reject" onClick={() => onResolve(market.id, 'no')}>NO Won</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </main>
+      );
+    }
+
+    function App() {
+      const [user, setUser] = useState(null);
+      const [activePage, setActivePage] = useState('markets');
+      const [markets, setMarkets] = useState([]);
+      const [leaderboard, setLeaderboard] = useState([]);
+      const [pendingPredictions, setPendingPredictions] = useState([]);
+      const [userBets, setUserBets] = useState([]);
+      const [selectedMarket, setSelectedMarket] = useState(null);
+      const [showCreateModal, setShowCreateModal] = useState(false);
+      const [toasts, setToasts] = useState([]);
+      const [loading, setLoading] = useState(true);
+
+      const addToast = (msg, type = 'success') => setToasts(prev => [...prev, { id: Date.now(), message: msg, type }]);
+      const removeToast = (id) => setToasts(prev => prev.filter(t => t.id !== id));
+
+      const weeklyBetUsed = user?.weekly_bet_used || false;
+
+      // Load data
+      useEffect(() => {
+        if (user) {
+          loadData();
+        }
+      }, [user]);
+
+      const loadData = async () => {
+        setLoading(true);
+        try {
+          // Load markets
+          const { data: marketsData } = await supabase
+            .from('markets')
+            .select('*')
+            .eq('status', 'active')
+            .order('created_at', { ascending: false });
+          setMarkets(marketsData || []);
+
+          // Load leaderboard
+          const { data: leaderboardData } = await supabase
+            .from('users')
+            .select('*')
+            .order('total_wins', { ascending: false })
+            .limit(10);
+          setLeaderboard(leaderboardData || []);
+
+          // Load user's bets
+          const { data: betsData } = await supabase
+            .from('bets')
+            .select('*')
+            .eq('user_id', user.id);
+          setUserBets(betsData || []);
+
+          // Load pending predictions (admin only)
+          if (user.is_admin) {
+            const { data: pendingData } = await supabase
+              .from('pending_predictions')
+              .select('*')
+              .order('created_at', { ascending: false });
+            setPendingPredictions(pendingData || []);
+          }
+        } catch (err) {
+          console.error('Error loading data:', err);
+          addToast('Failed to load data', 'error');
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      const handleLogin = (userData) => {
+        setUser(userData);
+        addToast(`Welcome to OTCfi Pulse, ${userData.username}!`);
+      };
+
+      const handleLogout = () => {
+        setUser(null);
+        setMarkets([]);
+        setUserBets([]);
+        setActivePage('markets');
+      };
+
+      const handleBet = async (marketId, side) => {
+        if (weeklyBetUsed) {
+          addToast('You already used your weekly bet!', 'error');
+          return;
+        }
+
+        try {
+          // Insert bet
+          const { error: betError } = await supabase
+            .from('bets')
+            .insert([{ user_id: user.id, market_id: marketId, side }]);
+
+          if (betError) throw betError;
+
+          // Update user's weekly bet status
+          const { error: userError } = await supabase
+            .from('users')
+            .update({ weekly_bet_used: true })
+            .eq('id', user.id);
+
+          if (userError) throw userError;
+
+          // Update market volume and percentages
+          const market = markets.find(m => m.id === marketId);
+          const newYes = side === 'yes' ? Math.min(99, market.yes_percent + 1) : Math.max(1, market.yes_percent - 1);
+          const newNo = 100 - newYes;
+
+          await supabase
+            .from('markets')
+            .update({ 
+              volume: (market.volume || 0) + 1000,
+              yes_percent: newYes,
+              no_percent: newNo
+            })
+            .eq('id', marketId);
+
+          // Update local state
+          setUser({ ...user, weekly_bet_used: true });
+          setUserBets([...userBets, { user_id: user.id, market_id: marketId, side }]);
+          setMarkets(markets.map(m => m.id === marketId ? { ...m, volume: (m.volume || 0) + 1000, yes_percent: newYes, no_percent: newNo } : m));
+          setSelectedMarket(null);
+          addToast(`Bet placed on ${side.toUpperCase()}! Win 1,000 OTCfi if correct 🎯`);
+        } catch (err) {
+          console.error('Error placing bet:', err);
+          addToast('Failed to place bet. Please try again.', 'error');
+        }
+      };
+
+      const handleCreatePrediction = async (data) => {
+        try {
+          const { error } = await supabase
+            .from('pending_predictions')
+            .insert([data]);
+
+          if (error) throw error;
+          addToast('Prediction submitted for review!');
+        } catch (err) {
+          console.error('Error submitting prediction:', err);
+          addToast('Failed to submit prediction.', 'error');
+        }
+      };
+
+      const handleApprovePrediction = async (pred) => {
+        try {
+          // Insert into markets
+          const { error: insertError } = await supabase
+            .from('markets')
+            .insert([{
+              title: pred.title,
+              category: pred.category,
+              ticker: pred.ticker,
+              company: pred.company,
+              ends_at: pred.ends_at,
+              resolution: `This market resolves based on: ${pred.title}`,
+              created_by: pred.created_by
+            }]);
+
+          if (insertError) throw insertError;
+
+          // Delete from pending
+          const { error: deleteError } = await supabase
+            .from('pending_predictions')
+            .delete()
+            .eq('id', pred.id);
+
+          if (deleteError) throw deleteError;
+
+          // Refresh data
+          await loadData();
+          addToast('Prediction approved!');
+        } catch (err) {
+          console.error('Error approving prediction:', err);
+          addToast('Failed to approve prediction.', 'error');
+        }
+      };
+
+      const handleRejectPrediction = async (id) => {
+        try {
+          const { error } = await supabase
+            .from('pending_predictions')
+            .delete()
+            .eq('id', id);
+
+          if (error) throw error;
+          setPendingPredictions(pendingPredictions.filter(p => p.id !== id));
+          addToast('Prediction rejected', 'error');
+        } catch (err) {
+          console.error('Error rejecting prediction:', err);
+          addToast('Failed to reject prediction.', 'error');
+        }
+      };
+
+      const handleResolveMarket = async (id, winner) => {
+        try {
+          // Update market status
+          const { error } = await supabase
+            .from('markets')
+            .update({ status: 'resolved', winner, resolved_at: new Date().toISOString() })
+            .eq('id', id);
+
+          if (error) throw error;
+
+          // Update winning bets and user earnings
+          const { data: winningBets } = await supabase
+            .from('bets')
+            .select('user_id')
+            .eq('market_id', id)
+            .eq('side', winner);
+
+          if (winningBets) {
+            for (const bet of winningBets) {
+              await supabase.rpc('increment_user_wins', { user_id: bet.user_id });
+            }
+          }
+
+          setMarkets(markets.filter(m => m.id !== id));
+          addToast(`Market resolved! ${winner.toUpperCase()} wins!`);
+        } catch (err) {
+          console.error('Error resolving market:', err);
+          addToast('Failed to resolve market.', 'error');
+        }
+      };
+
+      if (!user) return <Login onLogin={handleLogin} />;
+
+      const currentUserBet = selectedMarket ? userBets.find(b => b.market_id === selectedMarket.id) : null;
+
+      return (
+        <AppContext.Provider value={{ weeklyBetUsed, userBets }}>
+          <Header user={user} activePage={activePage} setActivePage={setActivePage} onLogout={handleLogout} />
+          {activePage === 'markets' && <MarketsPage markets={markets} onMarketClick={setSelectedMarket} onCreateClick={() => setShowCreateModal(true)} weeklyBetUsed={weeklyBetUsed} loading={loading} />}
+          {activePage === 'portfolio' && <PortfolioPage userBets={userBets} markets={markets} />}
+          {activePage === 'leaderboard' && <LeaderboardPage leaderboard={leaderboard} loading={loading} />}
+          {activePage === 'admin' && user.is_admin && <AdminPage pendingPredictions={pendingPredictions} onApprove={handleApprovePrediction} onReject={handleRejectPrediction} markets={markets} onResolve={handleResolveMarket} loading={loading} />}
+          {selectedMarket && <MarketDetail market={selectedMarket} onClose={() => setSelectedMarket(null)} onBet={handleBet} weeklyBetUsed={weeklyBetUsed} userBet={currentUserBet} />}
+          {showCreateModal && <CreateModal onClose={() => setShowCreateModal(false)} onSubmit={handleCreatePrediction} user={user} />}
+          <div className="toast-container">{toasts.map(toast => <Toast key={toast.id} message={toast.message} type={toast.type} onClose={() => removeToast(toast.id)} />)}</div>
+        </AppContext.Provider>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
