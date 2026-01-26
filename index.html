@@ -1017,7 +1017,7 @@
       );
     }
 
-    function AdminPage({ pendingPredictions, onApprove, onReject, markets, onResolve, loading }) {
+    function AdminPage({ pendingPredictions, onApprove, onReject, markets, onResolve, allUsers, onToggleAdmin, loading }) {
       if (loading) {
         return <main className="main"><div className="loading"><div className="loading-spinner">⟳</div><p>Loading admin panel...</p></div></main>;
       }
@@ -1025,7 +1025,7 @@
       return (
         <main className="main">
           <h1 className="page-title">Admin Panel</h1>
-          <p className="page-subtitle">Manage predictions and resolve markets.</p>
+          <p className="page-subtitle">Manage predictions, resolve markets, and control user access.</p>
           <div className="admin-section">
             <h3 className="admin-section-title">📋 Pending Predictions ({pendingPredictions.length})</h3>
             {pendingPredictions.length === 0 ? <p style={{ color: 'var(--text-muted)' }}>No pending predictions</p> : pendingPredictions.map(pred => (
@@ -1056,6 +1056,29 @@
               </div>
             ))}
           </div>
+          <div className="admin-section">
+            <h3 className="admin-section-title">👥 Manage Users ({allUsers.length})</h3>
+            {allUsers.length === 0 ? <p style={{ color: 'var(--text-muted)' }}>No users yet</p> : allUsers.map(u => (
+              <div key={u.id} className="pending-item">
+                <div className="pending-info" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <div className="leaderboard-avatar" style={{ width: '32px', height: '32px', borderRadius: '6px', flexShrink: 0 }}>
+                    {u.avatar_url ? <img src={u.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '6px' }} /> : u.username?.substring(0, 2).toUpperCase()}
+                  </div>
+                  <div>
+                    <div className="pending-title">{u.username}</div>
+                    <div className="pending-meta">{u.total_wins || 0} wins • {(u.total_earnings || 0).toLocaleString()} OTCfi</div>
+                  </div>
+                </div>
+                <div className="pending-actions">
+                  {u.is_admin ? (
+                    <button className="btn-sm btn-reject" onClick={() => onToggleAdmin(u.id, false)}>Remove Admin</button>
+                  ) : (
+                    <button className="btn-sm btn-approve" onClick={() => onToggleAdmin(u.id, true)}>Make Admin</button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
         </main>
       );
     }
@@ -1067,6 +1090,7 @@
       const [markets, setMarkets] = useState([]);
       const [leaderboard, setLeaderboard] = useState([]);
       const [pendingPredictions, setPendingPredictions] = useState([]);
+      const [allUsers, setAllUsers] = useState([]);
       const [userBets, setUserBets] = useState([]);
       const [selectedMarket, setSelectedMarket] = useState(null);
       const [showCreateModal, setShowCreateModal] = useState(false);
@@ -1206,6 +1230,12 @@
               .select('*')
               .order('created_at', { ascending: false });
             setPendingPredictions(pendingData || []);
+
+            const { data: usersData } = await supabase
+              .from('users')
+              .select('*')
+              .order('username', { ascending: true });
+            setAllUsers(usersData || []);
           }
           setDataLoaded(true);
         } catch (err) {
@@ -1245,6 +1275,12 @@
               .select('*')
               .order('created_at', { ascending: false });
             setPendingPredictions(pendingData || []);
+
+            const { data: usersData } = await supabase
+              .from('users')
+              .select('*')
+              .order('username', { ascending: true });
+            setAllUsers(usersData || []);
           }
         } catch (err) {
           console.error('Error loading data:', err);
@@ -1260,6 +1296,8 @@
         setSession(null);
         setMarkets([]);
         setUserBets([]);
+        setAllUsers([]);
+        setDataLoaded(false);
         setActivePage('markets');
       };
 
@@ -1385,6 +1423,23 @@
         }
       };
 
+      const handleToggleAdmin = async (userId, makeAdmin) => {
+        try {
+          const { error } = await supabase
+            .from('users')
+            .update({ is_admin: makeAdmin })
+            .eq('id', userId);
+
+          if (error) throw error;
+
+          setAllUsers(allUsers.map(u => u.id === userId ? { ...u, is_admin: makeAdmin } : u));
+          addToast(makeAdmin ? 'User is now an admin!' : 'Admin access removed');
+        } catch (err) {
+          console.error('Error updating admin status:', err);
+          addToast('Failed to update admin status.', 'error');
+        }
+      };
+
       // Show loading while checking auth
       if (initializing) {
         return (
@@ -1415,7 +1470,7 @@
           {activePage === 'markets' && <MarketsPage markets={markets} onMarketClick={setSelectedMarket} onCreateClick={() => setShowCreateModal(true)} weeklyBetUsed={weeklyBetUsed} loading={loading} />}
           {activePage === 'portfolio' && <PortfolioPage userBets={userBets} markets={markets} />}
           {activePage === 'leaderboard' && <LeaderboardPage leaderboard={leaderboard} loading={loading} />}
-          {activePage === 'admin' && user.is_admin && <AdminPage pendingPredictions={pendingPredictions} onApprove={handleApprovePrediction} onReject={handleRejectPrediction} markets={markets} onResolve={handleResolveMarket} loading={loading} />}
+          {activePage === 'admin' && user.is_admin && <AdminPage pendingPredictions={pendingPredictions} onApprove={handleApprovePrediction} onReject={handleRejectPrediction} markets={markets} onResolve={handleResolveMarket} allUsers={allUsers} onToggleAdmin={handleToggleAdmin} loading={loading} />}
           {selectedMarket && <MarketDetail market={selectedMarket} onClose={() => setSelectedMarket(null)} onBet={handleBet} weeklyBetUsed={weeklyBetUsed} userBet={currentUserBet} />}
           {showCreateModal && <CreateModal onClose={() => setShowCreateModal(false)} onSubmit={handleCreatePrediction} user={user} />}
           <div className="toast-container">{toasts.map(toast => <Toast key={toast.id} message={toast.message} type={toast.type} onClose={() => removeToast(toast.id)} />)}</div>
