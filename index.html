@@ -1081,7 +1081,10 @@
 
       // Check for existing session on mount
       useEffect(() => {
+        let mounted = true;
+
         supabase.auth.getSession().then(({ data: { session } }) => {
+          if (!mounted) return;
           setSession(session);
           if (session) {
             handleAuthUser(session.user);
@@ -1090,17 +1093,23 @@
           }
         });
 
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-          setSession(session);
-          if (session) {
-            handleAuthUser(session.user);
-          } else {
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+          if (!mounted) return;
+          // Only handle specific events, ignore token refresh and other background events
+          if (event === 'SIGNED_IN') {
+            setSession(session);
+            if (session) handleAuthUser(session.user);
+          } else if (event === 'SIGNED_OUT') {
+            setSession(null);
             setUser(null);
             setInitializing(false);
           }
         });
 
-        return () => subscription.unsubscribe();
+        return () => {
+          mounted = false;
+          subscription.unsubscribe();
+        };
       }, []);
 
       const handleAuthUser = async (authUser) => {
