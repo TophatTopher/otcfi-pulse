@@ -18,7 +18,7 @@
       --accent-purple: #a855f7;
       --accent-purple-dim: #7c3aed;
       --accent-magenta: #c026d3;
-      --accent-cyan: #06b6d4;
+      --accent-cyan: #16d9f1;
       --accent-green: #22c55e;
       --accent-red: #ef4444;
       --accent-discord: #5865F2;
@@ -50,7 +50,7 @@
     .logo { display: flex; align-items: baseline; font-size: 1.5rem; font-weight: 700; }
     .logo-otc { color: var(--text-primary); }
     .logo-fi { color: var(--accent-cyan); }
-    .logo-pulse { font-size: 0.7rem; color: var(--accent-purple); margin-left: 2px; font-weight: 600; }
+    .logo-pulse { font-size: 0.7rem; color: #fb3393; margin-left: 2px; font-weight: 600; }
     .nav { display: flex; gap: 2rem; }
     .nav-link {
       color: var(--text-secondary);
@@ -690,6 +690,7 @@
 
     function Header({ user, activePage, setActivePage, onLogout }) {
       const avatarUrl = user.avatar_url || user.user_metadata?.avatar_url;
+      const username = user.username || user.user_metadata?.full_name || user.user_metadata?.name || 'User';
 
       return (
         <header className="header">
@@ -701,6 +702,10 @@
             {user.is_admin && <button className={`nav-link ${activePage === 'admin' ? 'active' : ''}`} onClick={() => setActivePage('admin')}>Admin</button>}
           </nav>
           <div className="header-right">
+            <div className="balance-btn">
+              <span>👤</span>
+              <span>{username}</span>
+            </div>
             <div className="user-avatar">
               {avatarUrl ? <img src={avatarUrl} alt="Avatar" /> : '👤'}
             </div>
