@@ -690,7 +690,6 @@
 
     function Header({ user, activePage, setActivePage, onLogout }) {
       const avatarUrl = user.avatar_url || user.user_metadata?.avatar_url;
-      const username = user.username || user.user_metadata?.full_name || user.user_metadata?.name || 'User';
 
       return (
         <header className="header">
@@ -702,10 +701,6 @@
             {user.is_admin && <button className={`nav-link ${activePage === 'admin' ? 'active' : ''}`} onClick={() => setActivePage('admin')}>Admin</button>}
           </nav>
           <div className="header-right">
-            <div className="balance-btn">
-              <span>👤</span>
-              <span>{username}</span>
-            </div>
             <div className="user-avatar">
               {avatarUrl ? <img src={avatarUrl} alt="Avatar" /> : '👤'}
             </div>
@@ -1073,6 +1068,7 @@
       const [toasts, setToasts] = useState([]);
       const [loading, setLoading] = useState(true);
       const [initializing, setInitializing] = useState(true);
+      const [dataLoaded, setDataLoaded] = useState(false);
 
       const addToast = (msg, type = 'success') => setToasts(prev => [...prev, { id: Date.now(), message: msg, type }]);
       const removeToast = (id) => setToasts(prev => prev.filter(t => t.id !== id));
@@ -1160,8 +1156,6 @@
             if (insertError) throw insertError;
             setUser({ ...newUser, user_metadata: authUser.user_metadata });
           }
-          
-          addToast(`Welcome, ${discordUsername}!`);
         } catch (err) {
           console.error('Error handling auth user:', err);
           addToast('Error setting up profile', 'error');
@@ -1170,14 +1164,54 @@
         }
       };
 
-      // Load data when user is set
+      // Load data when user is set - only once
       useEffect(() => {
-        if (user) {
+        if (user && !dataLoaded) {
           loadData();
         }
-      }, [user]);
+      }, [user, dataLoaded]);
 
       const loadData = async () => {
+        if (dataLoaded) return;
+        setLoading(true);
+        try {
+          const { data: marketsData } = await supabase
+            .from('markets')
+            .select('*')
+            .eq('status', 'active')
+            .order('created_at', { ascending: false });
+          setMarkets(marketsData || []);
+
+          const { data: leaderboardData } = await supabase
+            .from('users')
+            .select('*')
+            .order('total_wins', { ascending: false })
+            .limit(10);
+          setLeaderboard(leaderboardData || []);
+
+          const { data: betsData } = await supabase
+            .from('bets')
+            .select('*')
+            .eq('user_id', user.id);
+          setUserBets(betsData || []);
+
+          if (user.is_admin) {
+            const { data: pendingData } = await supabase
+              .from('pending_predictions')
+              .select('*')
+              .order('created_at', { ascending: false });
+            setPendingPredictions(pendingData || []);
+          }
+          setDataLoaded(true);
+        } catch (err) {
+          console.error('Error loading data:', err);
+          addToast('Failed to load data', 'error');
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      const refreshData = async () => {
         setLoading(true);
         try {
           const { data: marketsData } = await supabase
@@ -1305,7 +1339,7 @@
 
           if (deleteError) throw deleteError;
 
-          await loadData();
+          await refreshData();
           addToast('Prediction approved!');
         } catch (err) {
           console.error('Error approving prediction:', err);
