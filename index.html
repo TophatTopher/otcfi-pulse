@@ -711,13 +711,13 @@
               <div className="user-avatar">
                 {avatarUrl ? <img src={avatarUrl} alt="Avatar" /> : '👤'}
               </div>
-              <button className="user-btn" onClick={() => setShowLogoutConfirm(true)} title="Logout">🚶</button>
+              <button className="user-btn" onClick={() => setShowLogoutConfirm(true)} title="Logout">❌</button>
             </div>
           </header>
           
           {showLogoutConfirm && (
             <ConfirmModal
-              icon="🚶"
+              icon="❌"
               title="Log Out?"
               message="Are you sure you want to log out of OTCfi Pulse?"
               confirmText="Log Out"
@@ -731,17 +731,13 @@
     }
 
     function MarketCard({ market, onClick }) {
-      const isPriceMarket = market.category === 'Price';
       return (
         <div className="market-card" onClick={() => onClick(market)}>
           <div className="market-header">
             <div className="market-ticker-row">
               {market.ticker && <span className="ticker-badge">{market.ticker}</span>}
-              {isPriceMarket ? (
-                <span className="market-company">{market.company}</span>
-              ) : (
-                <span className="category-badge">{market.category}</span>
-              )}
+              {market.company && <span className="market-company">{market.company}</span>}
+              <span className="category-badge">{market.category}</span>
             </div>
             <span className="market-date">Ends {formatDate(market.ends_at)}</span>
           </div>
@@ -773,12 +769,13 @@
                 <div className="detail-header">
                   <div className="detail-ticker">{market.ticker || market.category.charAt(0)}</div>
                   <div className="detail-info">
-                    <h2>{isPriceMarket ? market.company : market.category}</h2>
+                    <h2>{market.company || market.category}</h2>
                     <h1>{market.title}</h1>
                   </div>
                 </div>
                 <div className="detail-tags">
                   {market.ticker && <span className="detail-tag">Ticker: {market.ticker}</span>}
+                  {market.company && <span className="detail-tag">Company: {market.company}</span>}
                   <span className="detail-tag">Category: {market.category}</span>
                   <span className="detail-tag">Ends: {formatDate(market.ends_at)}</span>
                   <span className="detail-tag">Volume: {market.volume?.toLocaleString() || 0}</span>
@@ -860,7 +857,7 @@
           title,
           category,
           ticker: ticker.toUpperCase() || null,
-          company: isPriceCategory ? company : null,
+          company: company || null,
           ends_at: endsAt,
           created_by: user.id
         };
@@ -894,12 +891,10 @@
                     <label className="form-label">Ticker Symbol</label>
                     <input type="text" className="form-input" placeholder="e.g., MVCO" value={ticker} onChange={(e) => setTicker(e.target.value)} maxLength={5} required />
                   </div>
-                  {isPriceCategory && (
-                    <div className="form-group">
-                      <label className="form-label">Company Name</label>
-                      <input type="text" className="form-input" placeholder="e.g., Metavesco Inc" value={company} onChange={(e) => setCompany(e.target.value)} required />
-                    </div>
-                  )}
+                  <div className="form-group">
+                    <label className="form-label">Company Name</label>
+                    <input type="text" className="form-input" placeholder="e.g., Metavesco Inc" value={company} onChange={(e) => setCompany(e.target.value)} required />
+                  </div>
                   <div className="form-group">
                     <label className="form-label">{isPriceCategory ? 'Prediction Question' : 'Prediction Title'}</label>
                     <textarea className="form-textarea" placeholder={isPriceCategory ? "e.g., Will MVCO close above $0.01 this week?" : "e.g., New partnership announced this month"} value={title} onChange={(e) => setTitle(e.target.value)} required />
@@ -925,6 +920,7 @@
               details={[
                 { label: "Category", value: category },
                 { label: "Ticker", value: ticker.toUpperCase() },
+                { label: "Company", value: company },
                 { label: "Prediction", value: title.length > 50 ? title.substring(0, 50) + '...' : title },
                 { label: "Resolution Date", value: formattedDate }
               ]}
@@ -980,11 +976,8 @@
                   <div className="market-header">
                     <div className="market-ticker-row">
                       {market.ticker && <span className="ticker-badge">{market.ticker}</span>}
-                      {market.category === 'Price' ? (
-                        <span className="market-company">{market.company}</span>
-                      ) : (
-                        <span className="category-badge">{market.category}</span>
-                      )}
+                      {market.company && <span className="market-company">{market.company}</span>}
+                      <span className="category-badge">{market.category}</span>
                     </div>
                     <span className={`bet-status-badge ${bet?.side === 'yes' ? 'bet-available' : 'bet-used'}`}>{bet?.side?.toUpperCase()}</span>
                   </div>
