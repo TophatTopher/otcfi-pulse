@@ -740,6 +740,26 @@
       return { text: `${minutes}m left`, urgent: true };
     };
 
+    // Discord Webhook
+    const DISCORD_WEBHOOK_URL = 'https://discord.com/api/webhooks/1465853567393857649/o9dWL1qW3zBEVWWJvpkivWQfGKRGP27fDTEz80nZZafNLgzbUeZgu9K0bvp1mtrxiXsf';
+    
+    const sendDiscordNotification = async (content, embed = null) => {
+      try {
+        const payload = { content };
+        if (embed) {
+          payload.embeds = [embed];
+          delete payload.content;
+        }
+        await fetch(DISCORD_WEBHOOK_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+      } catch (err) {
+        console.error('Discord webhook error:', err);
+      }
+    };
+
     function Toast({ message, type, onClose }) {
       useEffect(() => { const t = setTimeout(onClose, 3000); return () => clearTimeout(t); }, [onClose]);
       return (<div className={`toast toast-${type}`}><span className="toast-icon">{type === 'success' ? '✓' : '✗'}</span><span>{message}</span></div>);
@@ -1606,6 +1626,15 @@
               .from('activity_log')
               .insert([{ type: 'new_user', user_id: newUser.id, message: activityMessage }]);
 
+            // Discord notification
+            sendDiscordNotification(null, {
+              title: '👤 New User Joined',
+              description: `**${discordUsername}** just joined OTCfi Pulse!`,
+              color: 0xfb3393,
+              footer: { text: 'OTCfi Pulse' },
+              timestamp: new Date().toISOString()
+            });
+
             setUser({ ...newUser, user_metadata: authUser.user_metadata });
           }
         } catch (err) {
@@ -1783,6 +1812,15 @@
           const newActivity = { id: Date.now(), type: 'bet', message: activityMessage, created_at: new Date().toISOString() };
           setActivityLog([newActivity, ...activityLog]);
 
+          // Discord notification
+          sendDiscordNotification(null, {
+            title: '🎯 New Bet Placed',
+            description: `**${user.username}** bet **${side.toUpperCase()}** on ${market.ticker ? '$' + market.ticker : market.title}`,
+            color: side === 'yes' ? 0x22c55e : 0xef4444,
+            footer: { text: 'OTCfi Pulse' },
+            timestamp: new Date().toISOString()
+          });
+
           setUser({ ...user, weekly_bet_used: true });
           setUserBets([...userBets, { user_id: user.id, market_id: marketId, side }]);
           setMarkets(markets.map(m => m.id === marketId ? { ...m, volume: (m.volume || 0) + 1000, yes_percent: newYes, no_percent: newNo } : m));
@@ -1842,6 +1880,16 @@
           const newActivity = { id: Date.now(), type: 'new_market', message: activityMessage, created_at: new Date().toISOString() };
           setActivityLog([newActivity, ...activityLog]);
 
+          // Discord notification
+          sendDiscordNotification(null, {
+            title: '📋 New Market Live',
+            description: `**${pred.ticker ? '$' + pred.ticker + ' - ' : ''}${pred.title}**\n\n📁 Category: ${pred.category}\n📅 Ends: ${formatDate(pred.ends_at)}`,
+            color: 0x16d9f1,
+            footer: { text: 'OTCfi Pulse' },
+            timestamp: new Date().toISOString(),
+            url: 'https://pulse.otcfi.io'
+          });
+
           await refreshData();
           addToast('Prediction approved!');
         } catch (err) {
@@ -1885,6 +1933,15 @@
           
           const newActivity = { id: Date.now(), type: 'resolve', message: activityMessage, created_at: new Date().toISOString() };
           setActivityLog([newActivity, ...activityLog]);
+
+          // Discord notification
+          sendDiscordNotification(null, {
+            title: '✅ Market Resolved',
+            description: `**${market.ticker ? '$' + market.ticker : market.title}**\n\n🏆 **${winner.toUpperCase()}** wins!`,
+            color: winner === 'yes' ? 0x22c55e : 0xef4444,
+            footer: { text: 'OTCfi Pulse' },
+            timestamp: new Date().toISOString()
+          });
 
           setMarkets(markets.filter(m => m.id !== id));
           addToast(`Market resolved! ${winner.toUpperCase()} wins!`);
