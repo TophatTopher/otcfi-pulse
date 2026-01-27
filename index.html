@@ -163,6 +163,24 @@
     }
     .market-company { font-size: 0.85rem; color: var(--text-secondary); }
     .market-date { font-size: 0.8rem; color: var(--text-muted); }
+    .countdown-badge { 
+      font-size: 0.75rem; 
+      color: var(--text-secondary); 
+      background: var(--bg-secondary); 
+      padding: 0.25rem 0.5rem; 
+      border-radius: 4px;
+      font-weight: 500;
+    }
+    .countdown-badge.urgent { 
+      background: rgba(251, 51, 147, 0.15); 
+      color: #fb3393; 
+      animation: pulse-urgent 2s infinite;
+    }
+    @keyframes pulse-urgent { 
+      0%, 100% { opacity: 1; } 
+      50% { opacity: 0.7; } 
+    }
+    .countdown-text-urgent { color: #fb3393; }
     .market-title { font-size: 1rem; font-weight: 500; margin-bottom: 0.75rem; line-height: 1.4; }
     .market-footer { display: flex; justify-content: space-between; align-items: center; }
     .market-meta { display: flex; gap: 1rem; font-size: 0.8rem; color: var(--text-muted); }
@@ -242,6 +260,12 @@
       border-radius: 6px;
       font-size: 0.8rem;
       color: var(--text-secondary);
+    }
+    .detail-tag.tag-urgent {
+      background: rgba(251, 51, 147, 0.15);
+      border-color: rgba(251, 51, 147, 0.3);
+      color: #fb3393;
+      animation: pulse-urgent 2s infinite;
     }
     .detail-body { padding: 1.5rem; }
     .resolution-text { color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 1.5rem; }
@@ -699,6 +723,23 @@
       return formatDate(dateStr);
     };
 
+    const formatCountdown = (dateStr) => {
+      const now = new Date();
+      const end = new Date(dateStr);
+      const diff = end - now;
+      
+      if (diff <= 0) return { text: 'Ended', urgent: true };
+      
+      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      
+      if (days > 7) return { text: `${days}d left`, urgent: false };
+      if (days > 0) return { text: `${days}d ${hours}h left`, urgent: days <= 1 };
+      if (hours > 0) return { text: `${hours}h ${minutes}m left`, urgent: true };
+      return { text: `${minutes}m left`, urgent: true };
+    };
+
     function Toast({ message, type, onClose }) {
       useEffect(() => { const t = setTimeout(onClose, 3000); return () => clearTimeout(t); }, [onClose]);
       return (<div className={`toast toast-${type}`}><span className="toast-icon">{type === 'success' ? '✓' : '✗'}</span><span>{message}</span></div>);
@@ -823,6 +864,15 @@
     }
 
     function MarketCard({ market, onClick }) {
+      const [countdown, setCountdown] = useState(formatCountdown(market.ends_at));
+      
+      useEffect(() => {
+        const timer = setInterval(() => {
+          setCountdown(formatCountdown(market.ends_at));
+        }, 60000); // Update every minute
+        return () => clearInterval(timer);
+      }, [market.ends_at]);
+
       return (
         <div className="market-card" onClick={() => onClick(market)}>
           <div className="market-header">
@@ -831,7 +881,7 @@
               {market.company && <span className="market-company">{market.company}</span>}
               <span className="category-badge">{market.category}</span>
             </div>
-            <span className="market-date">Ends {formatDate(market.ends_at)}</span>
+            <span className={`countdown-badge ${countdown.urgent ? 'urgent' : ''}`}>⏱ {countdown.text}</span>
           </div>
           <h3 className="market-title">{market.title}</h3>
           <div className="market-footer">
@@ -845,7 +895,15 @@
     function MarketDetail({ market, onClose, onBet, weeklyBetUsed, userBet }) {
       const [selectedSide, setSelectedSide] = useState('yes');
       const [showConfirm, setShowConfirm] = useState(false);
+      const [countdown, setCountdown] = useState(formatCountdown(market.ends_at));
       const isPriceMarket = market.category === 'Price';
+
+      useEffect(() => {
+        const timer = setInterval(() => {
+          setCountdown(formatCountdown(market.ends_at));
+        }, 60000);
+        return () => clearInterval(timer);
+      }, [market.ends_at]);
 
       const handleConfirmWager = () => {
         onBet(market.id, selectedSide);
@@ -869,7 +927,7 @@
                   {market.ticker && <span className="detail-tag">Ticker: {market.ticker}</span>}
                   {market.company && <span className="detail-tag">Company: {market.company}</span>}
                   <span className="detail-tag">Category: {market.category}</span>
-                  <span className="detail-tag">Ends: {formatDate(market.ends_at)}</span>
+                  <span className={`detail-tag ${countdown.urgent ? 'tag-urgent' : ''}`}>⏱ {countdown.text}</span>
                   <span className="detail-tag">Volume: {market.volume?.toLocaleString() || 0}</span>
                 </div>
               </div>
@@ -1096,6 +1154,7 @@
             <><h2 style={{ marginBottom: '1rem', fontSize: '1.1rem' }}>Open Positions</h2>
             <div className="market-grid">{userMarkets.map(market => {
               const bet = userBets.find(b => b.market_id === market.id);
+              const countdown = formatCountdown(market.ends_at);
               return (
                 <div key={market.id} className="market-card">
                   <div className="market-header">
@@ -1107,7 +1166,7 @@
                     <span className={`bet-status-badge ${bet?.side === 'yes' ? 'bet-available' : 'bet-used'}`}>{bet?.side?.toUpperCase()}</span>
                   </div>
                   <h3 className="market-title">{market.title}</h3>
-                  <div className="market-footer"><div className="market-meta"><span>Ends {formatDate(market.ends_at)}</span></div></div>
+                  <div className="market-footer"><div className="market-meta"><span className={countdown.urgent ? 'countdown-text-urgent' : ''}>⏱ {countdown.text}</span></div></div>
                 </div>
               );
             })}</div></>
