@@ -689,29 +689,44 @@
     }
 
     function Header({ user, activePage, setActivePage, onLogout }) {
+      const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
       const avatarUrl = user.avatar_url || user.user_metadata?.avatar_url;
       const username = user.username || user.user_metadata?.full_name || user.user_metadata?.name || 'User';
 
       return (
-        <header className="header">
-          <div className="logo"><span className="logo-otc">OTC</span><span className="logo-fi">fi</span><span className="logo-pulse">Pulse</span></div>
-          <nav className="nav">
-            <button className={`nav-link ${activePage === 'markets' ? 'active' : ''}`} onClick={() => setActivePage('markets')}>Markets</button>
-            <button className={`nav-link ${activePage === 'portfolio' ? 'active' : ''}`} onClick={() => setActivePage('portfolio')}>Portfolio</button>
-            <button className={`nav-link ${activePage === 'leaderboard' ? 'active' : ''}`} onClick={() => setActivePage('leaderboard')}>Leaderboard</button>
-            {user.is_admin && <button className={`nav-link ${activePage === 'admin' ? 'active' : ''}`} onClick={() => setActivePage('admin')}>Admin</button>}
-          </nav>
-          <div className="header-right">
-            <div className="balance-btn">
-              <span>👤</span>
-              <span>{username}</span>
+        <>
+          <header className="header">
+            <div className="logo"><span className="logo-otc">OTC</span><span className="logo-fi">fi</span><span className="logo-pulse">Pulse</span></div>
+            <nav className="nav">
+              <button className={`nav-link ${activePage === 'markets' ? 'active' : ''}`} onClick={() => setActivePage('markets')}>Markets</button>
+              <button className={`nav-link ${activePage === 'portfolio' ? 'active' : ''}`} onClick={() => setActivePage('portfolio')}>Portfolio</button>
+              <button className={`nav-link ${activePage === 'leaderboard' ? 'active' : ''}`} onClick={() => setActivePage('leaderboard')}>Leaderboard</button>
+              {user.is_admin && <button className={`nav-link ${activePage === 'admin' ? 'active' : ''}`} onClick={() => setActivePage('admin')}>Admin</button>}
+            </nav>
+            <div className="header-right">
+              <div className="balance-btn">
+                <span>👤</span>
+                <span>{username}</span>
+              </div>
+              <div className="user-avatar">
+                {avatarUrl ? <img src={avatarUrl} alt="Avatar" /> : '👤'}
+              </div>
+              <button className="user-btn" onClick={() => setShowLogoutConfirm(true)} title="Logout">🚶</button>
             </div>
-            <div className="user-avatar">
-              {avatarUrl ? <img src={avatarUrl} alt="Avatar" /> : '👤'}
-            </div>
-            <button className="user-btn" onClick={onLogout} title="Logout">🚪</button>
-          </div>
-        </header>
+          </header>
+          
+          {showLogoutConfirm && (
+            <ConfirmModal
+              icon="🚶"
+              title="Log Out?"
+              message="Are you sure you want to log out of OTCfi Pulse?"
+              confirmText="Log Out"
+              cancelText="Stay"
+              onConfirm={onLogout}
+              onCancel={() => setShowLogoutConfirm(false)}
+            />
+          )}
+        </>
       );
     }
 
@@ -721,8 +736,9 @@
         <div className="market-card" onClick={() => onClick(market)}>
           <div className="market-header">
             <div className="market-ticker-row">
+              {market.ticker && <span className="ticker-badge">{market.ticker}</span>}
               {isPriceMarket ? (
-                <><span className="ticker-badge">{market.ticker}</span><span className="market-company">{market.company}</span></>
+                <span className="market-company">{market.company}</span>
               ) : (
                 <span className="category-badge">{market.category}</span>
               )}
@@ -755,13 +771,14 @@
               <div className="modal-header">
                 <button className="back-link" onClick={onClose}>← Back to markets</button>
                 <div className="detail-header">
-                  <div className="detail-ticker">{isPriceMarket ? market.ticker : market.category.charAt(0)}</div>
+                  <div className="detail-ticker">{market.ticker || market.category.charAt(0)}</div>
                   <div className="detail-info">
                     <h2>{isPriceMarket ? market.company : market.category}</h2>
                     <h1>{market.title}</h1>
                   </div>
                 </div>
                 <div className="detail-tags">
+                  {market.ticker && <span className="detail-tag">Ticker: {market.ticker}</span>}
                   <span className="detail-tag">Category: {market.category}</span>
                   <span className="detail-tag">Ends: {formatDate(market.ends_at)}</span>
                   <span className="detail-tag">Volume: {market.volume?.toLocaleString() || 0}</span>
@@ -842,7 +859,7 @@
         const data = {
           title,
           category,
-          ticker: isPriceCategory ? ticker.toUpperCase() : null,
+          ticker: ticker.toUpperCase() || null,
           company: isPriceCategory ? company : null,
           ends_at: endsAt,
           created_by: user.id
@@ -873,17 +890,15 @@
                       ))}
                     </div>
                   </div>
+                  <div className="form-group">
+                    <label className="form-label">Ticker Symbol</label>
+                    <input type="text" className="form-input" placeholder="e.g., MVCO" value={ticker} onChange={(e) => setTicker(e.target.value)} maxLength={5} required />
+                  </div>
                   {isPriceCategory && (
-                    <>
-                      <div className="form-group">
-                        <label className="form-label">Ticker Symbol</label>
-                        <input type="text" className="form-input" placeholder="e.g., MVCO" value={ticker} onChange={(e) => setTicker(e.target.value)} maxLength={5} required />
-                      </div>
-                      <div className="form-group">
-                        <label className="form-label">Company Name</label>
-                        <input type="text" className="form-input" placeholder="e.g., Metavesco Inc" value={company} onChange={(e) => setCompany(e.target.value)} required />
-                      </div>
-                    </>
+                    <div className="form-group">
+                      <label className="form-label">Company Name</label>
+                      <input type="text" className="form-input" placeholder="e.g., Metavesco Inc" value={company} onChange={(e) => setCompany(e.target.value)} required />
+                    </div>
                   )}
                   <div className="form-group">
                     <label className="form-label">{isPriceCategory ? 'Prediction Question' : 'Prediction Title'}</label>
@@ -909,7 +924,7 @@
               message="Your prediction will be sent to admins for review before going live."
               details={[
                 { label: "Category", value: category },
-                ...(isPriceCategory ? [{ label: "Ticker", value: ticker.toUpperCase() }] : []),
+                { label: "Ticker", value: ticker.toUpperCase() },
                 { label: "Prediction", value: title.length > 50 ? title.substring(0, 50) + '...' : title },
                 { label: "Resolution Date", value: formattedDate }
               ]}
@@ -964,8 +979,9 @@
                 <div key={market.id} className="market-card">
                   <div className="market-header">
                     <div className="market-ticker-row">
+                      {market.ticker && <span className="ticker-badge">{market.ticker}</span>}
                       {market.category === 'Price' ? (
-                        <><span className="ticker-badge">{market.ticker}</span><span className="market-company">{market.company}</span></>
+                        <span className="market-company">{market.company}</span>
                       ) : (
                         <span className="category-badge">{market.category}</span>
                       )}
@@ -1017,8 +1033,9 @@
       );
     }
 
-    function AdminPage({ pendingPredictions, onApprove, onReject, markets, onResolve, allUsers, onToggleAdmin, loading }) {
+    function AdminPage({ pendingPredictions, onApprove, onReject, markets, onResolve, allUsers, onToggleAdmin, onDeleteUser, loading }) {
       const [userSearch, setUserSearch] = useState('');
+      const [deleteConfirm, setDeleteConfirm] = useState(null);
       
       const filteredUsers = allUsers.filter(u => 
         u.username?.toLowerCase().includes(userSearch.toLowerCase()) ||
@@ -1090,10 +1107,28 @@
                   ) : (
                     <button className="btn-sm btn-approve" onClick={() => onToggleAdmin(u.id, true)}>Make Admin</button>
                   )}
+                  <button className="btn-sm btn-reject" onClick={() => setDeleteConfirm(u)} style={{ marginLeft: '0.5rem' }}>🗑️</button>
                 </div>
               </div>
             ))}
           </div>
+          
+          {deleteConfirm && (
+            <ConfirmModal
+              icon="⚠️"
+              title="Delete User?"
+              message={`Are you sure you want to delete ${deleteConfirm.username}? This cannot be undone.`}
+              details={[
+                { label: "Username", value: deleteConfirm.username },
+                { label: "Wins", value: deleteConfirm.total_wins || 0 },
+                { label: "Earnings", value: `${(deleteConfirm.total_earnings || 0).toLocaleString()} OTCfi` }
+              ]}
+              warning="This will permanently delete the user and all their bets."
+              confirmText="Delete User"
+              onConfirm={() => { onDeleteUser(deleteConfirm.id); setDeleteConfirm(null); }}
+              onCancel={() => setDeleteConfirm(null)}
+            />
+          )}
         </main>
       );
     }
@@ -1455,6 +1490,30 @@
         }
       };
 
+      const handleDeleteUser = async (userId) => {
+        try {
+          // Delete user's bets first
+          await supabase
+            .from('bets')
+            .delete()
+            .eq('user_id', userId);
+
+          // Delete user
+          const { error } = await supabase
+            .from('users')
+            .delete()
+            .eq('id', userId);
+
+          if (error) throw error;
+
+          setAllUsers(allUsers.filter(u => u.id !== userId));
+          addToast('User deleted successfully');
+        } catch (err) {
+          console.error('Error deleting user:', err);
+          addToast('Failed to delete user.', 'error');
+        }
+      };
+
       // Show loading while checking auth
       if (initializing) {
         return (
@@ -1485,7 +1544,7 @@
           {activePage === 'markets' && <MarketsPage markets={markets} onMarketClick={setSelectedMarket} onCreateClick={() => setShowCreateModal(true)} weeklyBetUsed={weeklyBetUsed} loading={loading} />}
           {activePage === 'portfolio' && <PortfolioPage userBets={userBets} markets={markets} />}
           {activePage === 'leaderboard' && <LeaderboardPage leaderboard={leaderboard} loading={loading} />}
-          {activePage === 'admin' && user.is_admin && <AdminPage pendingPredictions={pendingPredictions} onApprove={handleApprovePrediction} onReject={handleRejectPrediction} markets={markets} onResolve={handleResolveMarket} allUsers={allUsers} onToggleAdmin={handleToggleAdmin} loading={loading} />}
+          {activePage === 'admin' && user.is_admin && <AdminPage pendingPredictions={pendingPredictions} onApprove={handleApprovePrediction} onReject={handleRejectPrediction} markets={markets} onResolve={handleResolveMarket} allUsers={allUsers} onToggleAdmin={handleToggleAdmin} onDeleteUser={handleDeleteUser} loading={loading} />}
           {selectedMarket && <MarketDetail market={selectedMarket} onClose={() => setSelectedMarket(null)} onBet={handleBet} weeklyBetUsed={weeklyBetUsed} userBet={currentUserBet} />}
           {showCreateModal && <CreateModal onClose={() => setShowCreateModal(false)} onSubmit={handleCreatePrediction} user={user} />}
           <div className="toast-container">{toasts.map(toast => <Toast key={toast.id} message={toast.message} type={toast.type} onClose={() => removeToast(toast.id)} />)}</div>
