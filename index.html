@@ -621,6 +621,30 @@
     .history-result.pending { background: rgba(168, 85, 247, 0.15); color: var(--accent-purple); }
     .profile-link:hover { border-color: var(--accent-purple); }
     
+    /* Alpha Badge */
+    .alpha-badge { background: linear-gradient(135deg, #fb3393, #16d9f1); color: white; font-size: 0.8rem; font-weight: 600; padding: 0.4rem 0.75rem; border-radius: 20px; }
+    
+    /* Activity Sidebar */
+    .markets-layout { display: flex; gap: 1.5rem; }
+    .markets-content { flex: 1; min-width: 0; }
+    .activity-toggle-btn { background: var(--bg-card); border: 1px solid var(--border-color); color: var(--text-primary); padding: 0.6rem 0.9rem; border-radius: 8px; cursor: pointer; font-size: 1rem; transition: all 0.2s; }
+    .activity-toggle-btn:hover { border-color: var(--accent-purple); background: var(--bg-secondary); }
+    .activity-sidebar { width: 300px; flex-shrink: 0; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; height: fit-content; max-height: calc(100vh - 150px); display: flex; flex-direction: column; position: sticky; top: 100px; }
+    .activity-header { padding: 1rem; border-bottom: 1px solid var(--border-color); }
+    .activity-header h3 { margin: 0; font-size: 1rem; font-weight: 600; }
+    .activity-list { padding: 0.5rem; overflow-y: auto; flex: 1; }
+    .activity-empty { color: var(--text-muted); text-align: center; padding: 2rem 1rem; font-size: 0.9rem; }
+    .activity-item { display: flex; gap: 0.75rem; padding: 0.75rem; border-radius: 8px; transition: background 0.2s; }
+    .activity-item:hover { background: var(--bg-secondary); }
+    .activity-icon { font-size: 1.1rem; flex-shrink: 0; }
+    .activity-content { flex: 1; min-width: 0; }
+    .activity-message { font-size: 0.85rem; margin: 0 0 0.25rem 0; line-height: 1.4; }
+    .activity-time { font-size: 0.75rem; color: var(--text-muted); }
+    
+    @media (max-width: 1024px) {
+      .activity-sidebar { position: fixed; right: 0; top: 70px; height: calc(100vh - 70px); max-height: none; border-radius: 12px 0 0 12px; z-index: 100; }
+    }
+    
     @media (max-width: 768px) {
       .header { padding: 1rem; flex-wrap: wrap; gap: 1rem; }
       .nav { order: 3; width: 100%; justify-content: center; gap: 1.5rem; }
@@ -629,6 +653,7 @@
       .stats-row { flex-direction: column; }
       .profile-header { flex-direction: column; text-align: center; }
       .stats-grid { grid-template-columns: repeat(2, 1fr); }
+      .activity-sidebar { width: 280px; }
     }
   </style>
 </head>
@@ -657,6 +682,21 @@
     const formatDate = (dateStr) => {
       const date = new Date(dateStr);
       return date.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: 'numeric' });
+    };
+
+    const formatTimeAgo = (dateStr) => {
+      const now = new Date();
+      const date = new Date(dateStr);
+      const seconds = Math.floor((now - date) / 1000);
+      
+      if (seconds < 60) return 'just now';
+      const minutes = Math.floor(seconds / 60);
+      if (minutes < 60) return `${minutes}m ago`;
+      const hours = Math.floor(minutes / 60);
+      if (hours < 24) return `${hours}h ago`;
+      const days = Math.floor(hours / 24);
+      if (days < 7) return `${days}d ago`;
+      return formatDate(dateStr);
     };
 
     function Toast({ message, type, onClose }) {
@@ -729,7 +769,7 @@
             <div className="logo" style={{ justifyContent: 'center', marginBottom: '1.5rem', fontSize: '2rem' }}>
               <span className="logo-otc">OTC</span><span className="logo-fi">fi</span><span className="logo-pulse">Pulse</span>
             </div>
-            <p className="login-subtitle">Predict OTC stock outcomes and win OTCfi tokens. Connect with Discord to get started.</p>
+            <p className="login-subtitle">Predict OTC stock outcomes. Free bets during alpha! Connect with Discord to get started.</p>
             {error && <p style={{ color: 'var(--accent-red)', marginBottom: '1rem', fontSize: '0.9rem' }}>{error}</p>}
             <button className="discord-btn" onClick={handleDiscordLogin} disabled={loading}>
               <DiscordIcon />
@@ -855,12 +895,11 @@
                       </div>
                       <div className="wager-info">
                         <div className="wager-info-row"><span className="wager-info-label">Selected side</span><span className={`wager-info-value ${selectedSide}`}>{selectedSide.toUpperCase()}</span></div>
-                        <div className="wager-info-row"><span className="wager-info-label">Potential reward</span><span className="wager-info-value">1,000 OTCfi</span></div>
                       </div>
                       <button className="place-wager-btn" onClick={() => setShowConfirm(true)} disabled={weeklyBetUsed}>Place Wager</button>
                     </>
                   )}
-                  <p className="demo-notice">This is a demo interface for OTCfi Pulse. Wagers are simulated credits only.</p>
+                  <p className="demo-notice">🚀 Alpha Phase: Free bets! 1 bet per week.</p>
                 </div>
               </div>
             </div>
@@ -873,8 +912,7 @@
               message="Are you sure you want to place this bet? This will use your weekly wager."
               details={[
                 { label: "Market", value: market.title.length > 40 ? market.title.substring(0, 40) + '...' : market.title },
-                { label: "Your Pick", value: selectedSide.toUpperCase(), className: selectedSide },
-                { label: "Potential Reward", value: "1,000 OTCfi" }
+                { label: "Your Pick", value: selectedSide.toUpperCase(), className: selectedSide }
               ]}
               warning="⚠️ You can only place 1 bet per week"
               confirmText="Place Wager"
@@ -985,7 +1023,7 @@
       );
     }
 
-    function MarketsPage({ markets, onMarketClick, onCreateClick, weeklyBetUsed, loading }) {
+    function MarketsPage({ markets, onMarketClick, onCreateClick, weeklyBetUsed, loading, activityLog, showActivity, onToggleActivity }) {
       const [activeCategory, setActiveCategory] = useState('All');
       const activeMarkets = markets.filter(m => m.status === 'active');
       const filtered = activeMarkets.filter(m => activeCategory === 'All' || m.category === activeCategory);
@@ -996,18 +1034,52 @@
 
       return (
         <main className="main">
-          <h1 className="page-title">Trade OTC Stock Outcomes</h1>
-          <p className="page-subtitle">Predict price movements, events, and more. Win 1,000 OTCfi for each correct prediction!</p>
-          <div className="stats-row">
-            <div style={{ display: 'flex', gap: '3rem' }}>
-              <div className="stat-group"><span className="stat-label">Available Balance</span><span className="stat-value">10,000 credits</span></div>
-              <div className="stat-group"><span className="stat-label">Weekly Bet</span><span className={`bet-status-badge ${weeklyBetUsed ? 'bet-used' : 'bet-available'}`}>{weeklyBetUsed ? '✗ Used' : '✓ Available'}</span></div>
+          <div className="markets-layout">
+            <div className="markets-content">
+              <h1 className="page-title">Trade OTC Stock Outcomes</h1>
+              <p className="page-subtitle">Predict price movements, events, and more. Compete for the top of the leaderboard!</p>
+              <div className="stats-row">
+                <div style={{ display: 'flex', gap: '2rem', alignItems: 'center' }}>
+                  <div className="alpha-badge">🚀 Free Alpha</div>
+                  <div className="stat-group"><span className="stat-label">Weekly Bet</span><span className={`bet-status-badge ${weeklyBetUsed ? 'bet-used' : 'bet-available'}`}>{weeklyBetUsed ? '✗ Used' : '✓ Available'}</span></div>
+                </div>
+                <div style={{ display: 'flex', gap: '0.75rem' }}>
+                  <button className="suggest-btn" onClick={onCreateClick}>+ Suggest Prediction</button>
+                  <button className="activity-toggle-btn" onClick={onToggleActivity}>{showActivity ? '✕' : '📢'}</button>
+                </div>
+              </div>
+              <div className="category-filters">{categories.map(cat => <button key={cat} className={`category-pill ${activeCategory === cat ? 'active' : ''}`} onClick={() => setActiveCategory(cat)}>{cat}</button>)}</div>
+              <div className="market-grid">{filtered.map(market => <MarketCard key={market.id} market={market} onClick={onMarketClick} />)}</div>
+              {filtered.length === 0 && <div className="empty-state"><div className="empty-state-icon">📊</div><div className="empty-state-title">No markets found</div><p>Try selecting a different category.</p></div>}
             </div>
-            <div><button className="suggest-btn" onClick={onCreateClick}>+ Suggest Prediction</button></div>
+            {showActivity && (
+              <div className="activity-sidebar">
+                <div className="activity-header">
+                  <h3>📢 Activity Feed</h3>
+                </div>
+                <div className="activity-list">
+                  {activityLog.length === 0 ? (
+                    <p className="activity-empty">No recent activity</p>
+                  ) : (
+                    activityLog.map(activity => (
+                      <div key={activity.id} className="activity-item">
+                        <span className="activity-icon">
+                          {activity.type === 'bet' && '🎯'}
+                          {activity.type === 'resolve' && '✅'}
+                          {activity.type === 'new_market' && '📋'}
+                          {activity.type === 'new_user' && '👤'}
+                        </span>
+                        <div className="activity-content">
+                          <p className="activity-message">{activity.message}</p>
+                          <span className="activity-time">{formatTimeAgo(activity.created_at)}</span>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
           </div>
-          <div className="category-filters">{categories.map(cat => <button key={cat} className={`category-pill ${activeCategory === cat ? 'active' : ''}`} onClick={() => setActiveCategory(cat)}>{cat}</button>)}</div>
-          <div className="market-grid">{filtered.map(market => <MarketCard key={market.id} market={market} onClick={onMarketClick} />)}</div>
-          {filtered.length === 0 && <div className="empty-state"><div className="empty-state-icon">📊</div><div className="empty-state-title">No markets found</div><p>Try selecting a different category.</p></div>}
         </main>
       );
     }
@@ -1035,7 +1107,7 @@
                     <span className={`bet-status-badge ${bet?.side === 'yes' ? 'bet-available' : 'bet-used'}`}>{bet?.side?.toUpperCase()}</span>
                   </div>
                   <h3 className="market-title">{market.title}</h3>
-                  <div className="market-footer"><div className="market-meta"><span>Ends {formatDate(market.ends_at)}</span></div><div className="market-meta"><span>Reward: 1,000 OTCfi</span></div></div>
+                  <div className="market-footer"><div className="market-meta"><span>Ends {formatDate(market.ends_at)}</span></div></div>
                 </div>
               );
             })}</div></>
@@ -1052,7 +1124,7 @@
       return (
         <main className="main">
           <h1 className="page-title">Leaderboard</h1>
-          <p className="page-subtitle">Top predictors ranked by wins and earnings.</p>
+          <p className="page-subtitle">Top predictors ranked by correct predictions.</p>
           <div className="leaderboard">
             <div className="leaderboard-header">🏆 Top Predictors</div>
             {leaderboard.length === 0 ? (
@@ -1069,7 +1141,6 @@
                   </div>
                   <div className="leaderboard-stats">
                     <span className="leaderboard-wins">{user.total_wins || 0} wins</span>
-                    <span className="leaderboard-earnings">{(user.total_earnings || 0).toLocaleString()} OTCfi</span>
                   </div>
                 </div>
               ))
@@ -1151,7 +1222,6 @@
               <h3 className="profile-section-title">📊 Public Stats</h3>
               <div className="stats-grid">
                 <div className="stat-card"><div className="stat-card-value">{profileUser.total_wins || 0}</div><div className="stat-card-label">Total Wins</div></div>
-                <div className="stat-card"><div className="stat-card-value">{(profileUser.total_earnings || 0).toLocaleString()}</div><div className="stat-card-label">OTCfi Earned</div></div>
               </div>
             </div>
           </main>
@@ -1177,7 +1247,6 @@
             <h3 className="profile-section-title">📊 Stats</h3>
             <div className="stats-grid">
               <div className="stat-card"><div className="stat-card-value">{totalWins}</div><div className="stat-card-label">Total Wins</div></div>
-              <div className="stat-card"><div className="stat-card-value">{(profileUser.total_earnings || 0).toLocaleString()}</div><div className="stat-card-label">OTCfi Earned</div></div>
               <div className="stat-card"><div className="stat-card-value">{winRate}%</div><div className="stat-card-label">Win Rate</div></div>
               <div className="stat-card"><div className="stat-card-value">{totalBets}</div><div className="stat-card-label">Total Bets</div></div>
               <div className="stat-card"><div className="stat-card-value">{profileUser.current_streak || 0}</div><div className="stat-card-label">Current Streak</div></div>
@@ -1188,7 +1257,7 @@
           {isOwnProfile && (
             <div className="profile-section">
               <h3 className="profile-section-title">💰 Wallet Address</h3>
-              <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '0.75rem' }}>Used for receiving OTCfi payouts. Only visible to you and admins.</p>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '0.75rem' }}>For future payouts. Only visible to you and admins.</p>
               <input 
                 type="text" 
                 className="form-input" 
@@ -1333,7 +1402,7 @@
                   </div>
                   <div>
                     <div className="pending-title">{u.username} {u.is_admin && <span style={{ color: 'var(--accent-purple)', fontSize: '0.75rem' }}>• ADMIN</span>}</div>
-                    <div className="pending-meta">@{u.username} • {u.total_wins || 0} wins • {(u.total_earnings || 0).toLocaleString()} OTCfi</div>
+                    <div className="pending-meta">@{u.username} • {u.total_wins || 0} wins</div>
                   </div>
                 </div>
                 <div className="pending-actions">
@@ -1355,8 +1424,7 @@
               message={`Are you sure you want to delete ${deleteConfirm.username}? This cannot be undone.`}
               details={[
                 { label: "Username", value: deleteConfirm.username },
-                { label: "Wins", value: deleteConfirm.total_wins || 0 },
-                { label: "Earnings", value: `${(deleteConfirm.total_earnings || 0).toLocaleString()} OTCfi` }
+                { label: "Wins", value: deleteConfirm.total_wins || 0 }
               ]}
               warning="This will permanently delete the user and all their bets."
               confirmText="Delete User"
@@ -1385,6 +1453,8 @@
       const [loading, setLoading] = useState(true);
       const [initializing, setInitializing] = useState(true);
       const [dataLoaded, setDataLoaded] = useState(false);
+      const [activityLog, setActivityLog] = useState([]);
+      const [showActivity, setShowActivity] = useState(false);
 
       const addToast = (msg, type = 'success') => setToasts(prev => [...prev, { id: Date.now(), message: msg, type }]);
       const removeToast = (id) => setToasts(prev => prev.filter(t => t.id !== id));
@@ -1470,6 +1540,13 @@
               .single();
 
             if (insertError) throw insertError;
+
+            // Log new user activity
+            const activityMessage = `${discordUsername} joined OTCfi Pulse`;
+            await supabase
+              .from('activity_log')
+              .insert([{ type: 'new_user', user_id: newUser.id, message: activityMessage }]);
+
             setUser({ ...newUser, user_metadata: authUser.user_metadata });
           }
         } catch (err) {
@@ -1511,6 +1588,14 @@
             .eq('user_id', user.id);
           setUserBets(betsData || []);
 
+          // Fetch activity log
+          const { data: activityData } = await supabase
+            .from('activity_log')
+            .select('*')
+            .order('created_at', { ascending: false })
+            .limit(50);
+          setActivityLog(activityData || []);
+
           if (user.is_admin) {
             const { data: pendingData } = await supabase
               .from('pending_predictions')
@@ -1549,6 +1634,14 @@
             .limit(10);
           setLeaderboard(leaderboardData || []);
 
+          // Fetch activity log
+          const { data: activityData } = await supabase
+            .from('activity_log')
+            .select('*')
+            .order('created_at', { ascending: false })
+            .limit(50);
+          setActivityLog(activityData || []);
+
           const { data: betsData } = await supabase
             .from('bets')
             .select('*')
@@ -1583,6 +1676,8 @@
         setMarkets([]);
         setUserBets([]);
         setAllUsers([]);
+        setActivityLog([]);
+        setShowActivity(false);
         setDataLoaded(false);
         setActivePage('markets');
       };
@@ -1620,11 +1715,20 @@
             })
             .eq('id', marketId);
 
+          // Log activity
+          const activityMessage = `${user.username} bet ${side.toUpperCase()} on ${market.ticker ? '$' + market.ticker : market.title.substring(0, 30)}`;
+          await supabase
+            .from('activity_log')
+            .insert([{ type: 'bet', user_id: user.id, market_id: marketId, message: activityMessage }]);
+          
+          const newActivity = { id: Date.now(), type: 'bet', message: activityMessage, created_at: new Date().toISOString() };
+          setActivityLog([newActivity, ...activityLog]);
+
           setUser({ ...user, weekly_bet_used: true });
           setUserBets([...userBets, { user_id: user.id, market_id: marketId, side }]);
           setMarkets(markets.map(m => m.id === marketId ? { ...m, volume: (m.volume || 0) + 1000, yes_percent: newYes, no_percent: newNo } : m));
           setSelectedMarket(null);
-          addToast(`Bet placed on ${side.toUpperCase()}! Win 1,000 OTCfi if correct 🎯`);
+          addToast(`Bet placed on ${side.toUpperCase()}! Good luck! 🎯`);
         } catch (err) {
           console.error('Error placing bet:', err);
           addToast('Failed to place bet. Please try again.', 'error');
@@ -1647,7 +1751,7 @@
 
       const handleApprovePrediction = async (pred) => {
         try {
-          const { error: insertError } = await supabase
+          const { data: marketData, error: insertError } = await supabase
             .from('markets')
             .insert([{
               title: pred.title,
@@ -1657,7 +1761,9 @@
               ends_at: pred.ends_at,
               resolution: `This market resolves based on: ${pred.title}`,
               created_by: pred.created_by
-            }]);
+            }])
+            .select()
+            .single();
 
           if (insertError) throw insertError;
 
@@ -1667,6 +1773,15 @@
             .eq('id', pred.id);
 
           if (deleteError) throw deleteError;
+
+          // Log activity
+          const activityMessage = `New market: ${pred.ticker ? '$' + pred.ticker + ' - ' : ''}${pred.title.substring(0, 35)}`;
+          await supabase
+            .from('activity_log')
+            .insert([{ type: 'new_market', market_id: marketData?.id, message: activityMessage }]);
+          
+          const newActivity = { id: Date.now(), type: 'new_market', message: activityMessage, created_at: new Date().toISOString() };
+          setActivityLog([newActivity, ...activityLog]);
 
           await refreshData();
           addToast('Prediction approved!');
@@ -1694,12 +1809,23 @@
 
       const handleResolveMarket = async (id, winner) => {
         try {
+          const market = markets.find(m => m.id === id);
+          
           const { error } = await supabase
             .from('markets')
             .update({ status: 'resolved', winner, resolved_at: new Date().toISOString() })
             .eq('id', id);
 
           if (error) throw error;
+
+          // Log activity
+          const activityMessage = `${market.ticker ? '$' + market.ticker : market.title.substring(0, 25)} resolved - ${winner.toUpperCase()} wins!`;
+          await supabase
+            .from('activity_log')
+            .insert([{ type: 'resolve', market_id: id, message: activityMessage }]);
+          
+          const newActivity = { id: Date.now(), type: 'resolve', message: activityMessage, created_at: new Date().toISOString() };
+          setActivityLog([newActivity, ...activityLog]);
 
           setMarkets(markets.filter(m => m.id !== id));
           addToast(`Market resolved! ${winner.toUpperCase()} wins!`);
@@ -1831,7 +1957,7 @@
       return (
         <AppContext.Provider value={{ weeklyBetUsed, userBets }}>
           <Header user={user} activePage={activePage} setActivePage={setActivePage} onLogout={handleLogout} onViewProfile={handleViewProfile} />
-          {activePage === 'markets' && <MarketsPage markets={markets} onMarketClick={setSelectedMarket} onCreateClick={() => setShowCreateModal(true)} weeklyBetUsed={weeklyBetUsed} loading={loading} />}
+          {activePage === 'markets' && <MarketsPage markets={markets} onMarketClick={setSelectedMarket} onCreateClick={() => setShowCreateModal(true)} weeklyBetUsed={weeklyBetUsed} loading={loading} activityLog={activityLog} showActivity={showActivity} onToggleActivity={() => setShowActivity(!showActivity)} />}
           {activePage === 'portfolio' && <PortfolioPage userBets={userBets} markets={markets} />}
           {activePage === 'leaderboard' && <LeaderboardPage leaderboard={leaderboard} onViewProfile={handleViewProfile} loading={loading} />}
           {activePage === 'profile' && <ProfilePage profileUser={profileUser} currentUser={user} userBets={allBets} markets={markets} onUpdateProfile={handleUpdateProfile} onViewProfile={handleViewProfile} loading={loading} />}
