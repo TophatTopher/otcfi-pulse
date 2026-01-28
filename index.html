@@ -1207,7 +1207,7 @@
           <div className="leaderboard">
             <div className="leaderboard-header">🏆 Top Predictors</div>
             {leaderboard.length === 0 ? (
-              <div className="leaderboard-row"><span style={{ color: 'var(--text-muted)' }}>No users yet. Be the first!</span></div>
+              <div className="leaderboard-row"><span style={{ color: 'var(--text-muted)' }}>No winners yet. Be the first to get a prediction right!</span></div>
             ) : (
               leaderboard.map((user, i) => (
                 <div key={user.id} className="leaderboard-row" onClick={() => onViewProfile(user.id)} style={{ cursor: 'pointer' }}>
@@ -1620,21 +1620,6 @@
 
             if (insertError) throw insertError;
 
-            // Log new user activity
-            const activityMessage = `${discordUsername} joined OTCfi Pulse`;
-            await supabase
-              .from('activity_log')
-              .insert([{ type: 'new_user', user_id: newUser.id, message: activityMessage }]);
-
-            // Discord notification
-            sendDiscordNotification(null, {
-              title: '👤 New User Joined',
-              description: `**${discordUsername}** just joined OTCfi Pulse!`,
-              color: 0xfb3393,
-              footer: { text: 'OTCfi Pulse' },
-              timestamp: new Date().toISOString()
-            });
-
             setUser({ ...newUser, user_metadata: authUser.user_metadata });
           }
         } catch (err) {
@@ -1666,8 +1651,9 @@
           const { data: leaderboardData } = await supabase
             .from('users')
             .select('*')
+            .gt('total_wins', 0)
             .order('total_wins', { ascending: false })
-            .limit(10);
+            .limit(100);
           setLeaderboard(leaderboardData || []);
 
           const { data: betsData } = await supabase
@@ -1718,8 +1704,9 @@
           const { data: leaderboardData } = await supabase
             .from('users')
             .select('*')
+            .gt('total_wins', 0)
             .order('total_wins', { ascending: false })
-            .limit(10);
+            .limit(100);
           setLeaderboard(leaderboardData || []);
 
           // Fetch activity log
@@ -1834,11 +1821,19 @@
 
       const handleCreatePrediction = async (data) => {
         try {
-          const { error } = await supabase
+          const { data: newPred, error } = await supabase
             .from('pending_predictions')
-            .insert([data]);
+            .insert([data])
+            .select()
+            .single();
 
           if (error) throw error;
+          
+          // Add to pending predictions list immediately (for admins)
+          if (user.is_admin && newPred) {
+            setPendingPredictions([newPred, ...pendingPredictions]);
+          }
+          
           addToast('Prediction submitted for review!');
         } catch (err) {
           console.error('Error submitting prediction:', err);
@@ -1985,6 +1980,7 @@
           if (error) throw error;
 
           setAllUsers(allUsers.filter(u => u.id !== userId));
+          setLeaderboard(leaderboard.filter(u => u.id !== userId));
           addToast('User deleted successfully');
         } catch (err) {
           console.error('Error deleting user:', err);
