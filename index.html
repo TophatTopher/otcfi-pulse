@@ -740,17 +740,18 @@
       return { text: `${minutes}m left`, urgent: true };
     };
 
-    // Discord Webhook
+    // Discord Webhooks
     const DISCORD_WEBHOOK_URL = 'https://discord.com/api/webhooks/1465853567393857649/o9dWL1qW3zBEVWWJvpkivWQfGKRGP27fDTEz80nZZafNLgzbUeZgu9K0bvp1mtrxiXsf';
+    const DISCORD_ADMIN_WEBHOOK_URL = 'https://discord.com/api/webhooks/1466541200499675156/azJmBD8gAYmRm18Ya6w87-pZQjI9uJHWUCZwKJ5HjGsMropu9vQdC2HE_8uNiWHj5q2J';
     
-    const sendDiscordNotification = async (content, embed = null) => {
+    const sendDiscordNotification = async (content, embed = null, useAdmin = false) => {
       try {
         const payload = { content };
         if (embed) {
           payload.embeds = [embed];
           delete payload.content;
         }
-        await fetch(DISCORD_WEBHOOK_URL, {
+        await fetch(useAdmin ? DISCORD_ADMIN_WEBHOOK_URL : DISCORD_WEBHOOK_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
@@ -1139,13 +1140,11 @@
                   {activityLog.length === 0 ? (
                     <p className="activity-empty">No recent activity</p>
                   ) : (
-                    activityLog.map(activity => (
+                    activityLog.slice(0, 5).map(activity => (
                       <div key={activity.id} className="activity-item">
                         <span className="activity-icon">
-                          {activity.type === 'bet' && '🎯'}
                           {activity.type === 'resolve' && '✅'}
                           {activity.type === 'new_market' && '📋'}
-                          {activity.type === 'new_user' && '👤'}
                         </span>
                         <div className="activity-content">
                           <p className="activity-message">{activity.message}</p>
@@ -1790,24 +1789,6 @@
             })
             .eq('id', marketId);
 
-          // Log activity
-          const activityMessage = `${user.username} bet ${side.toUpperCase()} on ${market.ticker ? '$' + market.ticker : market.title.substring(0, 30)}`;
-          await supabase
-            .from('activity_log')
-            .insert([{ type: 'bet', user_id: user.id, market_id: marketId, message: activityMessage }]);
-          
-          const newActivity = { id: Date.now(), type: 'bet', message: activityMessage, created_at: new Date().toISOString() };
-          setActivityLog([newActivity, ...activityLog]);
-
-          // Discord notification
-          sendDiscordNotification(null, {
-            title: '🎯 New Bet Placed',
-            description: `**${user.username}** bet **${side.toUpperCase()}** on ${market.ticker ? '$' + market.ticker : market.title}`,
-            color: side === 'yes' ? 0x22c55e : 0xef4444,
-            footer: { text: 'OTCfi Pulse' },
-            timestamp: new Date().toISOString()
-          });
-
           setUser({ ...user, weekly_bet_used: true });
           setUserBets([...userBets, { user_id: user.id, market_id: marketId, side }]);
           setMarkets(markets.map(m => m.id === marketId ? { ...m, volume: (m.volume || 0) + 1000, yes_percent: newYes, no_percent: newNo } : m));
@@ -1833,6 +1814,19 @@
           if (user.is_admin && newPred) {
             setPendingPredictions([newPred, ...pendingPredictions]);
           }
+
+          // Discord notification for admins
+          sendDiscordNotification(null, {
+            title: '📝 New Suggestion Submitted',
+            description: `**${user.username}** submitted a prediction for review:\n\n${data.ticker ? '$' + data.ticker + ' - ' : ''}${data.title}`,
+            color: 0xfbbf24,
+            fields: [
+              { name: 'Category', value: data.category, inline: true },
+              { name: 'Ends', value: formatDate(data.ends_at), inline: true }
+            ],
+            footer: { text: 'OTCfi Pulse • Admin Review Needed' },
+            timestamp: new Date().toISOString()
+          }, true);
           
           addToast('Prediction submitted for review!');
         } catch (err) {
@@ -1965,7 +1959,13 @@
 
       const handleDeleteUser = async (userId) => {
         try {
-          // Delete user's bets first
+          // Delete user's activity logs first
+          await supabase
+            .from('activity_log')
+            .delete()
+            .eq('user_id', userId);
+
+          // Delete user's bets
           await supabase
             .from('bets')
             .delete()
