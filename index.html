@@ -1214,9 +1214,10 @@
       );
     }
 
-    function MarketsPage({ markets, onMarketClick, onCreateClick, weeklyBetUsed, loading, activityLog, showActivity, onToggleActivity }) {
+    function MarketsPage({ markets, onMarketClick, onCreateClick, weeklyBetUsed, loading, activityLog, showActivity, onToggleActivity, isAdmin, onClearActivity }) {
       const [activeCategory, setActiveCategory] = useState('All');
       const [searchTerm, setSearchTerm] = useState('');
+      const [showClearConfirm, setShowClearConfirm] = useState(false);
       const activeMarkets = markets.filter(m => m.status === 'active');
       const filtered = activeMarkets.filter(m => {
         const matchesCategory = activeCategory === 'All' || m.category === activeCategory;
@@ -1263,8 +1264,17 @@
             </div>
             {showActivity && (
               <div className="activity-sidebar">
-                <div className="activity-header">
+                <div className="activity-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <h3>📢 Activity Feed</h3>
+                  {isAdmin && activityLog.length > 0 && (
+                    <button 
+                      onClick={() => setShowClearConfirm(true)} 
+                      style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '0.75rem', padding: '0.25rem' }}
+                      title="Clear activity feed"
+                    >
+                      🗑️
+                    </button>
+                  )}
                 </div>
                 <div className="activity-list">
                   {activityLog.length === 0 ? (
@@ -1285,6 +1295,17 @@
                   )}
                 </div>
               </div>
+            )}
+            {showClearConfirm && (
+              <ConfirmModal
+                icon="🗑️"
+                title="Clear Activity Feed?"
+                message="This will delete all activity feed entries."
+                warning="This action cannot be undone."
+                confirmText="Clear All"
+                onConfirm={() => { onClearActivity(); setShowClearConfirm(false); }}
+                onCancel={() => setShowClearConfirm(false)}
+              />
             )}
           </div>
         </main>
@@ -1324,9 +1345,10 @@
       );
     }
 
-    function HistoryPage({ markets, loading }) {
+    function HistoryPage({ markets, loading, isAdmin, onClearHistory }) {
       const [searchTerm, setSearchTerm] = useState('');
       const [filterCategory, setFilterCategory] = useState('All');
+      const [showClearConfirm, setShowClearConfirm] = useState(false);
       
       const resolvedMarkets = markets
         .filter(m => m.status === 'resolved')
@@ -1347,10 +1369,19 @@
 
       return (
         <main className="main">
-          <h1 className="page-title">Market History</h1>
-          <p className="page-subtitle">View all resolved markets and their outcomes.</p>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem', flexWrap: 'wrap', gap: '1rem' }}>
+            <div>
+              <h1 className="page-title" style={{ marginBottom: '0.25rem' }}>Market History</h1>
+              <p className="page-subtitle" style={{ marginBottom: 0 }}>View all resolved markets and their outcomes.</p>
+            </div>
+            {isAdmin && resolvedMarkets.length > 0 && (
+              <button className="btn btn-secondary" onClick={() => setShowClearConfirm(true)} style={{ fontSize: '0.85rem' }}>
+                🗑️ Clear History
+              </button>
+            )}
+          </div>
           
-          <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', marginTop: '1rem' }}>
             <input 
               type="text" 
               className="form-input" 
@@ -1399,6 +1430,18 @@
                 </div>
               ))}
             </div>
+          )}
+
+          {showClearConfirm && (
+            <ConfirmModal
+              icon="🗑️"
+              title="Clear Market History?"
+              message={`This will delete all ${resolvedMarkets.length} resolved markets. User stats (wins/losses) will be preserved.`}
+              warning="This action cannot be undone."
+              confirmText="Clear All"
+              onConfirm={() => { onClearHistory(); setShowClearConfirm(false); }}
+              onCancel={() => setShowClearConfirm(false)}
+            />
           )}
         </main>
       );
@@ -2498,6 +2541,38 @@
         }
       };
 
+      const handleClearActivity = async () => {
+        try {
+          const { error } = await supabase
+            .from('activity_log')
+            .delete()
+            .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all
+          
+          if (error) throw error;
+          setActivityLog([]);
+          addToast('Activity feed cleared');
+        } catch (err) {
+          console.error('Error clearing activity:', err);
+          addToast('Failed to clear activity feed.', 'error');
+        }
+      };
+
+      const handleClearHistory = async () => {
+        try {
+          const { error } = await supabase
+            .from('markets')
+            .delete()
+            .eq('status', 'resolved');
+          
+          if (error) throw error;
+          setMarkets(markets.filter(m => m.status !== 'resolved'));
+          addToast('Market history cleared');
+        } catch (err) {
+          console.error('Error clearing history:', err);
+          addToast('Failed to clear history.', 'error');
+        }
+      };
+
       const handleViewProfile = async (userId) => {
         try {
           setLoading(true);
@@ -2633,8 +2708,8 @@
       return (
         <AppContext.Provider value={{ weeklyBetUsed, userBets }}>
           <Header user={user} activePage={activePage} setActivePage={setActivePage} onLogout={handleLogout} onViewProfile={handleViewProfile} />
-          {activePage === 'markets' && <MarketsPage markets={markets} onMarketClick={setSelectedMarket} onCreateClick={() => setShowCreateModal(true)} weeklyBetUsed={weeklyBetUsed} loading={loading} activityLog={activityLog} showActivity={showActivity} onToggleActivity={() => setShowActivity(!showActivity)} />}
-          {activePage === 'history' && <HistoryPage markets={markets} loading={loading} />}
+          {activePage === 'markets' && <MarketsPage markets={markets} onMarketClick={setSelectedMarket} onCreateClick={() => setShowCreateModal(true)} weeklyBetUsed={weeklyBetUsed} loading={loading} activityLog={activityLog} showActivity={showActivity} onToggleActivity={() => setShowActivity(!showActivity)} isAdmin={user.is_admin} onClearActivity={handleClearActivity} />}
+          {activePage === 'history' && <HistoryPage markets={markets} loading={loading} isAdmin={user.is_admin} onClearHistory={handleClearHistory} />}
           {activePage === 'portfolio' && <PortfolioPage userBets={userBets} markets={markets} />}
           {activePage === 'leaderboard' && <LeaderboardPage leaderboard={leaderboard} onViewProfile={handleViewProfile} loading={loading} />}
           {activePage === 'profile' && <ProfilePage profileUser={profileUser} currentUser={user} userBets={allBets} markets={markets} onUpdateProfile={handleUpdateProfile} onViewProfile={handleViewProfile} loading={loading} />}
