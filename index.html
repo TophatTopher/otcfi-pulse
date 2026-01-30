@@ -813,7 +813,8 @@
           const { error } = await supabase.auth.signInWithOAuth({
             provider: 'discord',
             options: {
-              redirectTo: window.location.origin
+              redirectTo: window.location.origin,
+              scopes: 'identify email guilds'
             }
           });
 
@@ -1432,14 +1433,16 @@
       );
     }
 
-    function AdminPage({ pendingPredictions, onApprove, onReject, markets, onResolve, onEditMarket, allUsers, onToggleAdmin, onBanUser, onUnbanUser, onViewProfile, loading }) {
+    function AdminPage({ pendingPredictions, onApprove, onReject, onEditPending, markets, onResolve, onEditMarket, allUsers, onToggleAdmin, onBanUser, onUnbanUser, onViewProfile, loading }) {
       const [userSearch, setUserSearch] = useState('');
       const [banConfirm, setBanConfirm] = useState(null);
-      const [editMarket, setEditMarket] = useState(null);
+      const [editItem, setEditItem] = useState(null);
+      const [editType, setEditType] = useState(null); // 'market' or 'pending'
       const [editTitle, setEditTitle] = useState('');
       const [editTicker, setEditTicker] = useState('');
       const [editCompany, setEditCompany] = useState('');
       const [editEndsAt, setEditEndsAt] = useState('');
+      const [editCategory, setEditCategory] = useState('');
       
       const activeMarkets = markets.filter(m => m.status === 'active');
       const filteredUsers = allUsers.filter(u => 
@@ -1447,22 +1450,31 @@
         u.discord_id?.includes(userSearch)
       );
 
-      const openEditModal = (market) => {
-        setEditMarket(market);
-        setEditTitle(market.title);
-        setEditTicker(market.ticker || '');
-        setEditCompany(market.company || '');
-        setEditEndsAt(market.ends_at?.split('T')[0] || '');
+      const openEditModal = (item, type) => {
+        setEditItem(item);
+        setEditType(type);
+        setEditTitle(item.title);
+        setEditTicker(item.ticker || '');
+        setEditCompany(item.company || '');
+        setEditEndsAt(item.ends_at?.split('T')[0] || '');
+        setEditCategory(item.category || '');
       };
 
       const handleSaveEdit = () => {
-        onEditMarket(editMarket.id, {
+        const updates = {
           title: editTitle,
           ticker: editTicker,
           company: editCompany,
-          ends_at: editEndsAt
-        });
-        setEditMarket(null);
+          ends_at: editEndsAt,
+          category: editCategory
+        };
+        if (editType === 'market') {
+          onEditMarket(editItem.id, updates);
+        } else {
+          onEditPending(editItem.id, updates);
+        }
+        setEditItem(null);
+        setEditType(null);
       };
 
       if (loading) {
@@ -1482,6 +1494,7 @@
                   <div className="pending-meta">{pred.category} • Ends {formatDate(pred.ends_at)}</div>
                 </div>
                 <div className="pending-actions">
+                  <button className="btn-sm" style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)' }} onClick={() => openEditModal(pred, 'pending')}>✏️ Edit</button>
                   <button className="btn-sm btn-approve" onClick={() => onApprove(pred)}>Approve</button>
                   <button className="btn-sm btn-reject" onClick={() => onReject(pred.id)}>Reject</button>
                 </div>
@@ -1497,7 +1510,7 @@
                   <div className="pending-meta">{market.category} • Ends {formatDate(market.ends_at)} • Vol: {market.volume?.toLocaleString() || 0}</div>
                 </div>
                 <div className="pending-actions">
-                  <button className="btn-sm" style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)' }} onClick={() => openEditModal(market)}>✏️ Edit</button>
+                  <button className="btn-sm" style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)' }} onClick={() => openEditModal(market, 'market')}>✏️ Edit</button>
                   <button className="btn-sm btn-approve" onClick={() => onResolve(market.id, 'yes')}>YES Won</button>
                   <button className="btn-sm btn-reject" onClick={() => onResolve(market.id, 'no')}>NO Won</button>
                 </div>
@@ -1561,11 +1574,11 @@
             />
           )}
 
-          {editMarket && (
-            <div className="modal-overlay" onClick={() => setEditMarket(null)}>
+          {editItem && (
+            <div className="modal-overlay" onClick={() => { setEditItem(null); setEditType(null); }}>
               <div className="modal-content" style={{ maxWidth: '500px' }} onClick={e => e.stopPropagation()}>
                 <div className="modal-header">
-                  <h2 style={{ margin: 0 }}>✏️ Edit Market</h2>
+                  <h2 style={{ margin: 0 }}>✏️ Edit {editType === 'market' ? 'Market' : 'Prediction'}</h2>
                 </div>
                 <div style={{ padding: '1.5rem' }}>
                   <div className="form-group">
@@ -1580,12 +1593,22 @@
                     <label className="form-label">Title</label>
                     <textarea className="form-textarea" value={editTitle} onChange={e => setEditTitle(e.target.value)} rows={3} />
                   </div>
+                  {editType === 'pending' && (
+                    <div className="form-group">
+                      <label className="form-label">Category</label>
+                      <select className="form-input" value={editCategory} onChange={e => setEditCategory(e.target.value)}>
+                        {categories.filter(c => c !== 'All').map(cat => (
+                          <option key={cat} value={cat}>{cat}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                   <div className="form-group">
                     <label className="form-label">End Date</label>
                     <input type="date" className="form-input" value={editEndsAt} onChange={e => setEditEndsAt(e.target.value)} />
                   </div>
                   <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.5rem' }}>
-                    <button className="btn btn-secondary" onClick={() => setEditMarket(null)} style={{ flex: 1 }}>Cancel</button>
+                    <button className="btn btn-secondary" onClick={() => { setEditItem(null); setEditType(null); }} style={{ flex: 1 }}>Cancel</button>
                     <button className="btn btn-primary" onClick={handleSaveEdit} style={{ flex: 1 }}>Save Changes</button>
                   </div>
                 </div>
@@ -1629,7 +1652,7 @@
           if (!mounted) return;
           setSession(session);
           if (session) {
-            handleAuthUser(session.user);
+            handleAuthUser(session);
           } else {
             setInitializing(false);
           }
@@ -1640,7 +1663,7 @@
           // Only handle specific events, ignore token refresh and other background events
           if (event === 'SIGNED_IN') {
             setSession(session);
-            if (session) handleAuthUser(session.user);
+            if (session) handleAuthUser(session);
           } else if (event === 'SIGNED_OUT') {
             setSession(null);
             setUser(null);
@@ -1654,12 +1677,38 @@
         };
       }, []);
 
-      const handleAuthUser = async (authUser) => {
+      const METAVESCO_SERVER_ID = '1413003530931011727';
+
+      const handleAuthUser = async (session) => {
+        const authUser = session.user;
         try {
           // Get Discord metadata
           const discordUsername = authUser.user_metadata?.full_name || authUser.user_metadata?.name || authUser.email?.split('@')[0];
           const discordAvatar = authUser.user_metadata?.avatar_url;
           const discordId = authUser.user_metadata?.provider_id;
+
+          // Check if user is in Metavesco Discord server
+          if (session.provider_token) {
+            try {
+              const guildsResponse = await fetch('https://discord.com/api/users/@me/guilds', {
+                headers: { 'Authorization': `Bearer ${session.provider_token}` }
+              });
+              
+              if (guildsResponse.ok) {
+                const guilds = await guildsResponse.json();
+                const inMetavesco = guilds.some(g => g.id === METAVESCO_SERVER_ID);
+                
+                if (!inMetavesco) {
+                  await supabase.auth.signOut();
+                  addToast('You must join the Metavesco Discord server first!', 'error');
+                  setInitializing(false);
+                  return;
+                }
+              }
+            } catch (guildErr) {
+              console.error('Error checking Discord guilds:', guildErr);
+            }
+          }
 
           // Check if user exists in our users table
           let { data: existingUser, error: fetchError } = await supabase
@@ -2133,6 +2182,29 @@
         }
       };
 
+      const handleEditPending = async (predId, updates) => {
+        try {
+          const { error } = await supabase
+            .from('pending_predictions')
+            .update({
+              title: updates.title,
+              ticker: updates.ticker,
+              company: updates.company,
+              category: updates.category,
+              ends_at: updates.ends_at
+            })
+            .eq('id', predId);
+
+          if (error) throw error;
+
+          setPendingPredictions(pendingPredictions.map(p => p.id === predId ? { ...p, ...updates } : p));
+          addToast('Prediction updated successfully');
+        } catch (err) {
+          console.error('Error updating prediction:', err);
+          addToast('Failed to update prediction.', 'error');
+        }
+      };
+
       const handleViewProfile = async (userId) => {
         try {
           setLoading(true);
@@ -2218,7 +2290,7 @@
           {activePage === 'portfolio' && <PortfolioPage userBets={userBets} markets={markets} />}
           {activePage === 'leaderboard' && <LeaderboardPage leaderboard={leaderboard} onViewProfile={handleViewProfile} loading={loading} />}
           {activePage === 'profile' && <ProfilePage profileUser={profileUser} currentUser={user} userBets={allBets} markets={markets} onUpdateProfile={handleUpdateProfile} onViewProfile={handleViewProfile} loading={loading} />}
-          {activePage === 'admin' && user.is_admin && <AdminPage pendingPredictions={pendingPredictions} onApprove={handleApprovePrediction} onReject={handleRejectPrediction} markets={markets} onResolve={handleResolveMarket} onEditMarket={handleEditMarket} allUsers={allUsers} onToggleAdmin={handleToggleAdmin} onBanUser={handleBanUser} onUnbanUser={handleUnbanUser} onViewProfile={handleViewProfile} loading={loading} />}
+          {activePage === 'admin' && user.is_admin && <AdminPage pendingPredictions={pendingPredictions} onApprove={handleApprovePrediction} onReject={handleRejectPrediction} onEditPending={handleEditPending} markets={markets} onResolve={handleResolveMarket} onEditMarket={handleEditMarket} allUsers={allUsers} onToggleAdmin={handleToggleAdmin} onBanUser={handleBanUser} onUnbanUser={handleUnbanUser} onViewProfile={handleViewProfile} loading={loading} />}
           {selectedMarket && <MarketDetail market={selectedMarket} onClose={() => setSelectedMarket(null)} onBet={handleBet} weeklyBetUsed={weeklyBetUsed} userBet={currentUserBet} />}
           {showCreateModal && <CreateModal onClose={() => setShowCreateModal(false)} onSubmit={handleCreatePrediction} user={user} />}
           <div className="toast-container">{toasts.map(toast => <Toast key={toast.id} message={toast.message} type={toast.type} onClose={() => removeToast(toast.id)} />)}</div>
