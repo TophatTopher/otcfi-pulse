@@ -1638,6 +1638,7 @@
       const [dataLoaded, setDataLoaded] = useState(false);
       const [activityLog, setActivityLog] = useState([]);
       const [showActivity, setShowActivity] = useState(false);
+      const [accessDenied, setAccessDenied] = useState(null); // 'not_in_server' or 'banned'
 
       const addToast = (msg, type = 'success') => setToasts(prev => [...prev, { id: Date.now(), message: msg, type }]);
       const removeToast = (id) => setToasts(prev => prev.filter(t => t.id !== id));
@@ -1650,8 +1651,8 @@
 
         supabase.auth.getSession().then(({ data: { session } }) => {
           if (!mounted) return;
-          setSession(session);
           if (session) {
+            // Don't set session here - let handleAuthUser do it after checks
             handleAuthUser(session);
           } else {
             setInitializing(false);
@@ -1662,7 +1663,7 @@
           if (!mounted) return;
           // Only handle specific events, ignore token refresh and other background events
           if (event === 'SIGNED_IN') {
-            setSession(session);
+            // Don't set session until after membership check passes
             if (session) handleAuthUser(session);
           } else if (event === 'SIGNED_OUT') {
             setSession(null);
@@ -1679,6 +1680,25 @@
 
       const METAVESCO_SERVER_ID = '1413003530931011727';
 
+      const checkMetavescoMembership = async (providerToken) => {
+        if (!providerToken) return true; // Skip check if no token (allow existing users)
+        
+        try {
+          const guildsResponse = await fetch('https://discord.com/api/users/@me/guilds', {
+            headers: { 'Authorization': `Bearer ${providerToken}` }
+          });
+          
+          if (guildsResponse.ok) {
+            const guilds = await guildsResponse.json();
+            return guilds.some(g => g.id === METAVESCO_SERVER_ID);
+          }
+          return true; // If API fails, allow through
+        } catch (err) {
+          console.error('Error checking Discord guilds:', err);
+          return true; // If error, allow through
+        }
+      };
+
       const handleAuthUser = async (session) => {
         const authUser = session.user;
         try {
@@ -1688,26 +1708,15 @@
           const discordId = authUser.user_metadata?.provider_id;
 
           // Check if user is in Metavesco Discord server
-          if (session.provider_token) {
-            try {
-              const guildsResponse = await fetch('https://discord.com/api/users/@me/guilds', {
-                headers: { 'Authorization': `Bearer ${session.provider_token}` }
-              });
-              
-              if (guildsResponse.ok) {
-                const guilds = await guildsResponse.json();
-                const inMetavesco = guilds.some(g => g.id === METAVESCO_SERVER_ID);
-                
-                if (!inMetavesco) {
-                  await supabase.auth.signOut();
-                  addToast('You must join the Metavesco Discord server first!', 'error');
-                  setInitializing(false);
-                  return;
-                }
-              }
-            } catch (guildErr) {
-              console.error('Error checking Discord guilds:', guildErr);
-            }
+          const inMetavesco = await checkMetavescoMembership(session.provider_token);
+          
+          if (!inMetavesco) {
+            await supabase.auth.signOut();
+            setSession(null);
+            setUser(null);
+            setAccessDenied('not_in_server');
+            setInitializing(false);
+            return;
           }
 
           // Check if user exists in our users table
@@ -1731,10 +1740,14 @@
             // Check if user is banned
             if (existingUser.banned) {
               await supabase.auth.signOut();
-              addToast('Your account has been banned.', 'error');
+              setSession(null);
+              setUser(null);
+              setAccessDenied('banned');
               setInitializing(false);
               return;
             }
+            // Membership and ban checks passed - set session
+            setSession(session);
             // Update avatar if changed
             if (existingUser.avatar_url !== discordAvatar) {
               await supabase
@@ -1744,6 +1757,8 @@
             }
             setUser({ ...existingUser, avatar_url: discordAvatar, user_metadata: authUser.user_metadata });
           } else {
+            // New user - membership check passed, set session
+            setSession(session);
             // Create new user
             const { data: newUser, error: insertError } = await supabase
               .from('users')
@@ -2266,6 +2281,46 @@
             <div className="loading">
               <div className="loading-spinner">⟳</div>
               <p>Loading...</p>
+            </div>
+          </div>
+        );
+      }
+
+      // Show access denied page
+      if (accessDenied) {
+        return (
+          <div className="login-container">
+            <div className="login-card" style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>
+                {accessDenied === 'banned' ? '🚫' : '🔒'}
+              </div>
+              <h1 style={{ color: 'var(--text-primary)', marginBottom: '0.5rem' }}>
+                {accessDenied === 'banned' ? 'Account Banned' : 'Access Denied'}
+              </h1>
+              <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem' }}>
+                {accessDenied === 'banned' 
+                  ? 'Your account has been banned from OTCfi Pulse.' 
+                  : 'You must be a member of the Metavesco Discord server to access OTCfi Pulse.'}
+              </p>
+              {accessDenied === 'not_in_server' && (
+                <a 
+                  href="https://discord.gg/metavesco" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="btn btn-primary"
+                  style={{ marginBottom: '1rem', display: 'inline-block' }}
+                >
+                  Join Metavesco Discord
+                </a>
+              )}
+              <br />
+              <button 
+                className="btn btn-secondary" 
+                onClick={() => { setAccessDenied(null); }}
+                style={{ marginTop: '0.5rem' }}
+              >
+                Try Again
+              </button>
             </div>
           </div>
         );
