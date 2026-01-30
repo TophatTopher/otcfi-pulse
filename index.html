@@ -1104,8 +1104,16 @@
 
     function MarketsPage({ markets, onMarketClick, onCreateClick, weeklyBetUsed, loading, activityLog, showActivity, onToggleActivity }) {
       const [activeCategory, setActiveCategory] = useState('All');
+      const [searchTerm, setSearchTerm] = useState('');
       const activeMarkets = markets.filter(m => m.status === 'active');
-      const filtered = activeMarkets.filter(m => activeCategory === 'All' || m.category === activeCategory);
+      const filtered = activeMarkets.filter(m => {
+        const matchesCategory = activeCategory === 'All' || m.category === activeCategory;
+        const matchesSearch = searchTerm === '' || 
+          m.ticker?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          m.company?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          m.title?.toLowerCase().includes(searchTerm.toLowerCase());
+        return matchesCategory && matchesSearch;
+      });
       
       if (loading) {
         return <main className="main"><div className="loading"><div className="loading-spinner">⟳</div><p>Loading markets...</p></div></main>;
@@ -1127,9 +1135,19 @@
                   <button className="activity-toggle-btn" onClick={onToggleActivity}>{showActivity ? '✕' : '📢'}</button>
                 </div>
               </div>
-              <div className="category-filters">{categories.map(cat => <button key={cat} className={`category-pill ${activeCategory === cat ? 'active' : ''}`} onClick={() => setActiveCategory(cat)}>{cat}</button>)}</div>
+              <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap' }}>
+                <input 
+                  type="text" 
+                  className="form-input" 
+                  placeholder="Search by ticker, company, or title..." 
+                  value={searchTerm} 
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  style={{ flex: 1, minWidth: '200px', maxWidth: '300px' }}
+                />
+                <div className="category-filters" style={{ marginBottom: 0 }}>{categories.map(cat => <button key={cat} className={`category-pill ${activeCategory === cat ? 'active' : ''}`} onClick={() => setActiveCategory(cat)}>{cat}</button>)}</div>
+              </div>
               <div className="market-grid">{filtered.map(market => <MarketCard key={market.id} market={market} onClick={onMarketClick} />)}</div>
-              {filtered.length === 0 && <div className="empty-state"><div className="empty-state-icon">📊</div><div className="empty-state-title">No markets found</div><p>Try selecting a different category.</p></div>}
+              {filtered.length === 0 && <div className="empty-state"><div className="empty-state-icon">📊</div><div className="empty-state-title">No markets found</div><p>Try a different search or category.</p></div>}
             </div>
             {showActivity && (
               <div className="activity-sidebar">
@@ -1414,15 +1432,38 @@
       );
     }
 
-    function AdminPage({ pendingPredictions, onApprove, onReject, markets, onResolve, allUsers, onToggleAdmin, onBanUser, onUnbanUser, onViewProfile, loading }) {
+    function AdminPage({ pendingPredictions, onApprove, onReject, markets, onResolve, onEditMarket, allUsers, onToggleAdmin, onBanUser, onUnbanUser, onViewProfile, loading }) {
       const [userSearch, setUserSearch] = useState('');
       const [banConfirm, setBanConfirm] = useState(null);
+      const [editMarket, setEditMarket] = useState(null);
+      const [editTitle, setEditTitle] = useState('');
+      const [editTicker, setEditTicker] = useState('');
+      const [editCompany, setEditCompany] = useState('');
+      const [editEndsAt, setEditEndsAt] = useState('');
       
       const activeMarkets = markets.filter(m => m.status === 'active');
       const filteredUsers = allUsers.filter(u => 
         u.username?.toLowerCase().includes(userSearch.toLowerCase()) ||
         u.discord_id?.includes(userSearch)
       );
+
+      const openEditModal = (market) => {
+        setEditMarket(market);
+        setEditTitle(market.title);
+        setEditTicker(market.ticker || '');
+        setEditCompany(market.company || '');
+        setEditEndsAt(market.ends_at?.split('T')[0] || '');
+      };
+
+      const handleSaveEdit = () => {
+        onEditMarket(editMarket.id, {
+          title: editTitle,
+          ticker: editTicker,
+          company: editCompany,
+          ends_at: editEndsAt
+        });
+        setEditMarket(null);
+      };
 
       if (loading) {
         return <main className="main"><div className="loading"><div className="loading-spinner">⟳</div><p>Loading admin panel...</p></div></main>;
@@ -1456,6 +1497,7 @@
                   <div className="pending-meta">{market.category} • Ends {formatDate(market.ends_at)} • Vol: {market.volume?.toLocaleString() || 0}</div>
                 </div>
                 <div className="pending-actions">
+                  <button className="btn-sm" style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)' }} onClick={() => openEditModal(market)}>✏️ Edit</button>
                   <button className="btn-sm btn-approve" onClick={() => onResolve(market.id, 'yes')}>YES Won</button>
                   <button className="btn-sm btn-reject" onClick={() => onResolve(market.id, 'no')}>NO Won</button>
                 </div>
@@ -1517,6 +1559,38 @@
               onConfirm={() => { onBanUser(banConfirm.id); setBanConfirm(null); }}
               onCancel={() => setBanConfirm(null)}
             />
+          )}
+
+          {editMarket && (
+            <div className="modal-overlay" onClick={() => setEditMarket(null)}>
+              <div className="modal-content" style={{ maxWidth: '500px' }} onClick={e => e.stopPropagation()}>
+                <div className="modal-header">
+                  <h2 style={{ margin: 0 }}>✏️ Edit Market</h2>
+                </div>
+                <div style={{ padding: '1.5rem' }}>
+                  <div className="form-group">
+                    <label className="form-label">Ticker</label>
+                    <input type="text" className="form-input" value={editTicker} onChange={e => setEditTicker(e.target.value)} placeholder="e.g., MVCO" />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Company</label>
+                    <input type="text" className="form-input" value={editCompany} onChange={e => setEditCompany(e.target.value)} placeholder="e.g., Metavesco Inc" />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Title</label>
+                    <textarea className="form-textarea" value={editTitle} onChange={e => setEditTitle(e.target.value)} rows={3} />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">End Date</label>
+                    <input type="date" className="form-input" value={editEndsAt} onChange={e => setEditEndsAt(e.target.value)} />
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.5rem' }}>
+                    <button className="btn btn-secondary" onClick={() => setEditMarket(null)} style={{ flex: 1 }}>Cancel</button>
+                    <button className="btn btn-primary" onClick={handleSaveEdit} style={{ flex: 1 }}>Save Changes</button>
+                  </div>
+                </div>
+              </div>
+            </div>
           )}
         </main>
       );
@@ -2037,6 +2111,28 @@
         }
       };
 
+      const handleEditMarket = async (marketId, updates) => {
+        try {
+          const { error } = await supabase
+            .from('markets')
+            .update({
+              title: updates.title,
+              ticker: updates.ticker,
+              company: updates.company,
+              ends_at: updates.ends_at
+            })
+            .eq('id', marketId);
+
+          if (error) throw error;
+
+          setMarkets(markets.map(m => m.id === marketId ? { ...m, ...updates } : m));
+          addToast('Market updated successfully');
+        } catch (err) {
+          console.error('Error updating market:', err);
+          addToast('Failed to update market.', 'error');
+        }
+      };
+
       const handleViewProfile = async (userId) => {
         try {
           setLoading(true);
@@ -2122,7 +2218,7 @@
           {activePage === 'portfolio' && <PortfolioPage userBets={userBets} markets={markets} />}
           {activePage === 'leaderboard' && <LeaderboardPage leaderboard={leaderboard} onViewProfile={handleViewProfile} loading={loading} />}
           {activePage === 'profile' && <ProfilePage profileUser={profileUser} currentUser={user} userBets={allBets} markets={markets} onUpdateProfile={handleUpdateProfile} onViewProfile={handleViewProfile} loading={loading} />}
-          {activePage === 'admin' && user.is_admin && <AdminPage pendingPredictions={pendingPredictions} onApprove={handleApprovePrediction} onReject={handleRejectPrediction} markets={markets} onResolve={handleResolveMarket} allUsers={allUsers} onToggleAdmin={handleToggleAdmin} onBanUser={handleBanUser} onUnbanUser={handleUnbanUser} onViewProfile={handleViewProfile} loading={loading} />}
+          {activePage === 'admin' && user.is_admin && <AdminPage pendingPredictions={pendingPredictions} onApprove={handleApprovePrediction} onReject={handleRejectPrediction} markets={markets} onResolve={handleResolveMarket} onEditMarket={handleEditMarket} allUsers={allUsers} onToggleAdmin={handleToggleAdmin} onBanUser={handleBanUser} onUnbanUser={handleUnbanUser} onViewProfile={handleViewProfile} loading={loading} />}
           {selectedMarket && <MarketDetail market={selectedMarket} onClose={() => setSelectedMarket(null)} onBet={handleBet} weeklyBetUsed={weeklyBetUsed} userBet={currentUserBet} />}
           {showCreateModal && <CreateModal onClose={() => setShowCreateModal(false)} onSubmit={handleCreatePrediction} user={user} />}
           <div className="toast-container">{toasts.map(toast => <Toast key={toast.id} message={toast.message} type={toast.type} onClose={() => removeToast(toast.id)} />)}</div>
