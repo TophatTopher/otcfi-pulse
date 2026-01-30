@@ -2157,11 +2157,30 @@
           })
           .subscribe();
 
+        // Admin-only: pending predictions
+        let pendingChannel = null;
+        if (user.is_admin) {
+          pendingChannel = supabase
+            .channel('pending-changes')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'pending_predictions' }, (payload) => {
+              console.log('Pending change:', payload);
+              if (payload.eventType === 'INSERT') {
+                setPendingPredictions(prev => [payload.new, ...prev]);
+              } else if (payload.eventType === 'DELETE') {
+                setPendingPredictions(prev => prev.filter(p => p.id !== payload.old.id));
+              } else if (payload.eventType === 'UPDATE') {
+                setPendingPredictions(prev => prev.map(p => p.id === payload.new.id ? payload.new : p));
+              }
+            })
+            .subscribe();
+        }
+
         return () => {
           supabase.removeChannel(marketsChannel);
           supabase.removeChannel(activityChannel);
           supabase.removeChannel(betsChannel);
           supabase.removeChannel(usersChannel);
+          if (pendingChannel) supabase.removeChannel(pendingChannel);
         };
       }, [user]);
 
