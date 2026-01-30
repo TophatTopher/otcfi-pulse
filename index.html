@@ -2326,21 +2326,26 @@
                     Join Metavesco Discord
                   </a>
                   <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '1rem' }}>
-                    After joining, you may need to go to Discord Settings → Authorized Apps → Remove OTCfi Pulse, then try again.
+                    After joining, click the button below to verify.
                   </p>
                 </>
               )}
               <button 
                 className="btn btn-secondary" 
                 onClick={async () => { 
-                  await supabase.auth.signOut();
-                  setAccessDenied(null); 
-                  setSession(null);
-                  setUser(null);
+                  setAccessDenied(null);
+                  // Go directly to Discord login for fresh token
+                  await supabase.auth.signInWithOAuth({
+                    provider: 'discord',
+                    options: {
+                      redirectTo: window.location.origin,
+                      scopes: 'identify email guilds'
+                    }
+                  });
                 }}
                 style={{ marginTop: '0.5rem' }}
               >
-                Try Again
+                {accessDenied === 'not_in_server' ? 'I\'ve Joined - Verify Now' : 'Try Again'}
               </button>
             </div>
           </div>
