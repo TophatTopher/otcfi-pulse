@@ -2143,6 +2143,14 @@
             // Refresh markets to update volumes/percentages
             supabase.from('markets').select('*').order('created_at', { ascending: false })
               .then(({ data }) => { if (data) setMarkets(data); });
+            // Refresh user's bets for portfolio
+            supabase.from('bets').select('*').eq('user_id', user.id)
+              .then(({ data }) => { if (data) setUserBets(data); });
+            // Refresh all bets for admin
+            if (user.is_admin) {
+              supabase.from('bets').select('*')
+                .then(({ data }) => { if (data) setAllBets(data); });
+            }
           })
           .subscribe();
 
