@@ -1681,7 +1681,7 @@
       const METAVESCO_SERVER_ID = '1413003530931011727';
 
       const checkMetavescoMembership = async (providerToken) => {
-        if (!providerToken) return true; // Skip check if no token (allow existing users)
+        if (!providerToken) return false; // No token = can't verify = deny
         
         try {
           const guildsResponse = await fetch('https://discord.com/api/users/@me/guilds', {
@@ -1692,10 +1692,10 @@
             const guilds = await guildsResponse.json();
             return guilds.some(g => g.id === METAVESCO_SERVER_ID);
           }
-          return true; // If API fails, allow through
+          return false; // If API fails, deny
         } catch (err) {
           console.error('Error checking Discord guilds:', err);
-          return true; // If error, allow through
+          return false; // If error, deny
         }
       };
 
@@ -1707,19 +1707,7 @@
           const discordAvatar = authUser.user_metadata?.avatar_url;
           const discordId = authUser.user_metadata?.provider_id;
 
-          // Check if user is in Metavesco Discord server
-          const inMetavesco = await checkMetavescoMembership(session.provider_token);
-          
-          if (!inMetavesco) {
-            await supabase.auth.signOut();
-            setSession(null);
-            setUser(null);
-            setAccessDenied('not_in_server');
-            setInitializing(false);
-            return;
-          }
-
-          // Check if user exists in our users table
+          // First check if user already exists in our database
           let { data: existingUser, error: fetchError } = await supabase
             .from('users')
             .select('*')
@@ -1737,6 +1725,7 @@
           }
 
           if (existingUser) {
+            // EXISTING USER - already verified before
             // Check if user is banned
             if (existingUser.banned) {
               await supabase.auth.signOut();
@@ -1746,7 +1735,7 @@
               setInitializing(false);
               return;
             }
-            // Membership and ban checks passed - set session
+            // Set session and user
             setSession(session);
             // Update avatar if changed
             if (existingUser.avatar_url !== discordAvatar) {
@@ -1757,9 +1746,32 @@
             }
             setUser({ ...existingUser, avatar_url: discordAvatar, user_metadata: authUser.user_metadata });
           } else {
-            // New user - membership check passed, set session
+            // NEW USER - must verify Discord server membership
+            // provider_token is required for new users
+            if (!session.provider_token) {
+              // No token available - force re-auth
+              await supabase.auth.signOut();
+              setSession(null);
+              setUser(null);
+              setAccessDenied('not_in_server');
+              setInitializing(false);
+              return;
+            }
+
+            // Check guild membership
+            const inMetavesco = await checkMetavescoMembership(session.provider_token);
+            
+            if (!inMetavesco) {
+              await supabase.auth.signOut();
+              setSession(null);
+              setUser(null);
+              setAccessDenied('not_in_server');
+              setInitializing(false);
+              return;
+            }
+
+            // Membership verified - create new user
             setSession(session);
-            // Create new user
             const { data: newUser, error: insertError } = await supabase
               .from('users')
               .insert([{ 
@@ -2303,20 +2315,29 @@
                   : 'You must be a member of the Metavesco Discord server to access OTCfi Pulse.'}
               </p>
               {accessDenied === 'not_in_server' && (
-                <a 
-                  href="https://discord.gg/metavesco" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="btn btn-primary"
-                  style={{ marginBottom: '1rem', display: 'inline-block' }}
-                >
-                  Join Metavesco Discord
-                </a>
+                <>
+                  <a 
+                    href="https://discord.gg/nA5sx6PrwX" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="btn btn-primary"
+                    style={{ marginBottom: '1rem', display: 'inline-block' }}
+                  >
+                    Join Metavesco Discord
+                  </a>
+                  <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '1rem' }}>
+                    After joining, you may need to go to Discord Settings → Authorized Apps → Remove OTCfi Pulse, then try again.
+                  </p>
+                </>
               )}
-              <br />
               <button 
                 className="btn btn-secondary" 
-                onClick={() => { setAccessDenied(null); }}
+                onClick={async () => { 
+                  await supabase.auth.signOut();
+                  setAccessDenied(null); 
+                  setSession(null);
+                  setUser(null);
+                }}
                 style={{ marginTop: '0.5rem' }}
               >
                 Try Again
