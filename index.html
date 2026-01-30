@@ -2110,6 +2110,61 @@
         }
       }, [user, dataLoaded]);
 
+      // Realtime subscriptions
+      useEffect(() => {
+        if (!user) return;
+
+        const marketsChannel = supabase
+          .channel('markets-changes')
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'markets' }, (payload) => {
+            console.log('Markets change:', payload);
+            if (payload.eventType === 'INSERT') {
+              setMarkets(prev => [payload.new, ...prev]);
+            } else if (payload.eventType === 'UPDATE') {
+              setMarkets(prev => prev.map(m => m.id === payload.new.id ? payload.new : m));
+            } else if (payload.eventType === 'DELETE') {
+              setMarkets(prev => prev.filter(m => m.id !== payload.old.id));
+            }
+          })
+          .subscribe();
+
+        const activityChannel = supabase
+          .channel('activity-changes')
+          .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'activity_log' }, (payload) => {
+            console.log('Activity change:', payload);
+            setActivityLog(prev => [payload.new, ...prev].slice(0, 50));
+          })
+          .subscribe();
+
+        const betsChannel = supabase
+          .channel('bets-changes')
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'bets' }, (payload) => {
+            console.log('Bets change:', payload);
+            // Refresh markets to update volumes/percentages
+            supabase.from('markets').select('*').order('created_at', { ascending: false })
+              .then(({ data }) => { if (data) setMarkets(data); });
+          })
+          .subscribe();
+
+        const usersChannel = supabase
+          .channel('users-changes')
+          .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'users' }, (payload) => {
+            console.log('Users change:', payload);
+            setLeaderboard(prev => prev.map(u => u.id === payload.new.id ? payload.new : u));
+            if (user.is_admin) {
+              setAllUsers(prev => prev.map(u => u.id === payload.new.id ? payload.new : u));
+            }
+          })
+          .subscribe();
+
+        return () => {
+          supabase.removeChannel(marketsChannel);
+          supabase.removeChannel(activityChannel);
+          supabase.removeChannel(betsChannel);
+          supabase.removeChannel(usersChannel);
+        };
+      }, [user]);
+
       const loadData = async () => {
         if (dataLoaded) return;
         setLoading(true);
