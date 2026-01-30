@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>OTCfi Pulse Beta</title>
+  <title>OTCfi Pulse Alpha</title>
   <link rel="icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAMAAAAoLQ9TAAABAGlDQ1BpY2MAABiVY2BgPMEABCwGDAy5eSVFQe5OChGRUQrsDxgYgRAMEpOLCxhwA6Cqb9cgai/r4lGHC3CmpBYnA+kPQKxSBLQcaKQIkC2SDmFrgNhJELYNiF1eUlACZAeA2EUhQc5AdgqQrZGOxE5CYicXFIHU9wDZNrk5pckIdzPwpOaFBgNpDiCWYShmCGJwZ3AC+R+iJH8RA4PFVwYG5gkIsaSZDAzbWxkYJG4hxFQWMDDwtzAwbDuPEEOESUFiUSJYiAWImdLSGBg+LWdg4I1kYBC+wMDAFQ0LCBxuUwC7zZ0hHwjTGXIYUoEingx5DMkMekCWEYMBgyGDGQCm1j8/yRb+6wAAACBjSFJNAAB6JgAAgIQAAPoAAACA6AAAdTAAAOpgAAA6mAAAF3CculE8AAAA9lBMVEUFARgGAhkGARkJARkJAhkJAhoIARkHARkEARcAABMAABIBABYCARcUAx1fCDZeCDZkCDhhCDdVCDMfAyAAABQIAhkAARUwBSf9FGz+E2zcEWHuEmf8E2vpEmUEARgvBSbzE2j/FHBcCDOuDlD/FG/9E2zgEmIRAhwGARgAARYnBCPAD1erDlBgCTViCjaGC0PLD1osBSYAABUHAhkcAyCXDUpTCDJxCztoCjp5Cj+fDUzfEmIwBSb/FW7sEmb8FG79FXJlCTctBSXvE2eKDEV3Cj8xBScHARgrBCX1FGnGEFkuBCb/FW/VEV4QAhxQBzFCBiwFARcJm6iHAAAAB3RJTUUH6gEbEhoYfZB++QAAAL5JREFUGNNdj+cOwjAMhE0LTRvKDhvC3jvsvSkb8v4vQyhUSPiHZX+S784AomzwV5Jslx0K+gFV0zDWnBaRdJfb4/X5A0T6gGAoHInG4omknyD6BiiUSmeyuXyhWNLLJqhUa/VGs9VOdpgp0630+oPhaDyZupymCiKz+aK4XOXX5OPTZZvtdNfaH4SLEKVgsOPpjDFmVg7ELtebrMjfnUJZvz+eVmj6vgKqkd8fZjbFAODAuSq6mFTxHheTABxe7WcUi0xy1NoAAAAedEVYdGljYzpjb3B5cmlnaHQAR29vZ2xlIEluYy4gMjAxNqwLMzgAAAAUdEVYdGljYzpkZXNjcmlwdGlvbgBzUkdCupBzBwAAAABJRU5ErkJggg==">
   <link rel="shortcut icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAMAAAAoLQ9TAAABAGlDQ1BpY2MAABiVY2BgPMEABCwGDAy5eSVFQe5OChGRUQrsDxgYgRAMEpOLCxhwA6Cqb9cgai/r4lGHC3CmpBYnA+kPQKxSBLQcaKQIkC2SDmFrgNhJELYNiF1eUlACZAeA2EUhQc5AdgqQrZGOxE5CYicXFIHU9wDZNrk5pckIdzPwpOaFBgNpDiCWYShmCGJwZ3AC+R+iJH8RA4PFVwYG5gkIsaSZDAzbWxkYJG4hxFQWMDDwtzAwbDuPEEOESUFiUSJYiAWImdLSGBg+LWdg4I1kYBC+wMDAFQ0LCBxuUwC7zZ0hHwjTGXIYUoEingx5DMkMekCWEYMBgyGDGQCm1j8/yRb+6wAAACBjSFJNAAB6JgAAgIQAAPoAAACA6AAAdTAAAOpgAAA6mAAAF3CculE8AAAA9lBMVEUFARgGAhkGARkJARkJAhkJAhoIARkHARkEARcAABMAABIBABYCARcUAx1fCDZeCDZkCDhhCDdVCDMfAyAAABQIAhkAARUwBSf9FGz+E2zcEWHuEmf8E2vpEmUEARgvBSbzE2j/FHBcCDOuDlD/FG/9E2zgEmIRAhwGARgAARYnBCPAD1erDlBgCTViCjaGC0PLD1osBSYAABUHAhkcAyCXDUpTCDJxCztoCjp5Cj+fDUzfEmIwBSb/FW7sEmb8FG79FXJlCTctBSXvE2eKDEV3Cj8xBScHARgrBCX1FGnGEFkuBCb/FW/VEV4QAhxQBzFCBiwFARcJm6iHAAAAB3RJTUUH6gEbEhoYfZB++QAAAL5JREFUGNNdj+cOwjAMhE0LTRvKDhvC3jvsvSkb8v4vQyhUSPiHZX+S784AomzwV5Jslx0K+gFV0zDWnBaRdJfb4/X5A0T6gGAoHInG4omknyD6BiiUSmeyuXyhWNLLJqhUa/VGs9VOdpgp0630+oPhaDyZupymCiKz+aK4XOXX5OPTZZvtdNfaH4SLEKVgsOPpjDFmVg7ELtebrMjfnUJZvz+eVmj6vgKqkd8fZjbFAODAuSq6mFTxHheTABxe7WcUi0xy1NoAAAAedEVYdGljYzpjb3B5cmlnaHQAR29vZ2xlIEluYy4gMjAxNqwLMzgAAAAUdEVYdGljYzpkZXNjcmlwdGlvbgBzUkdCupBzBwAAAABJRU5ErkJggg==">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -533,6 +533,28 @@
     .empty-state { text-align: center; padding: 4rem 2rem; color: var(--text-muted); }
     .empty-state-icon { font-size: 3rem; margin-bottom: 1rem; opacity: 0.5; }
     .empty-state-title { font-size: 1.1rem; font-weight: 500; color: var(--text-primary); margin-bottom: 0.5rem; }
+    
+    /* History Page */
+    .history-list { display: flex; flex-direction: column; gap: 1rem; }
+    .history-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.25rem;
+      transition: all 0.2s;
+    }
+    .history-card:hover { border-color: var(--border-light); }
+    .history-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.75rem; flex-wrap: wrap; gap: 0.5rem; }
+    .history-ticker-row { display: flex; align-items: center; gap: 0.75rem; }
+    .history-ticker { font-weight: 600; color: var(--accent-cyan); font-size: 1rem; }
+    .history-result { font-size: 0.8rem; font-weight: 600; padding: 0.25rem 0.6rem; border-radius: 6px; }
+    .result-yes { background: rgba(34, 197, 94, 0.15); color: var(--accent-green); }
+    .result-no { background: rgba(239, 68, 68, 0.15); color: var(--accent-red); }
+    .history-date { font-size: 0.8rem; color: var(--text-muted); }
+    .history-title { font-size: 0.95rem; color: var(--text-primary); margin-bottom: 0.75rem; line-height: 1.4; }
+    .history-meta { display: flex; gap: 1rem; font-size: 0.8rem; color: var(--text-muted); }
+    .history-category { background: var(--bg-secondary); padding: 0.2rem 0.5rem; border-radius: 4px; }
+    
     .suggest-btn {
       display: flex;
       align-items: center;
@@ -670,15 +692,58 @@
     }
     
     @media (max-width: 768px) {
-      .header { padding: 1rem; flex-wrap: wrap; gap: 1rem; }
-      .nav { order: 3; width: 100%; justify-content: center; gap: 1.5rem; }
+      .header { padding: 0.75rem 1rem; flex-wrap: wrap; gap: 0.75rem; }
+      .logo { font-size: 1.1rem; }
+      .nav { order: 3; width: 100%; justify-content: center; gap: 0.5rem; overflow-x: auto; padding-bottom: 0.25rem; }
+      .nav-link { padding: 0.4rem 0.6rem; font-size: 0.8rem; white-space: nowrap; }
       .main { padding: 1rem; }
+      .page-title { font-size: 1.5rem; }
+      .page-subtitle { font-size: 0.85rem; }
       .market-grid { grid-template-columns: 1fr; }
-      .stats-row { flex-direction: column; }
+      .stats-row { flex-direction: column; gap: 1rem; }
       .profile-header { flex-direction: column; text-align: center; }
       .stats-grid { grid-template-columns: repeat(2, 1fr); }
       .activity-sidebar { width: 280px; }
+      .category-filters { gap: 0.4rem; flex-wrap: nowrap; overflow-x: auto; padding-bottom: 0.25rem; }
+      .category-pill { padding: 0.4rem 0.75rem; font-size: 0.75rem; white-space: nowrap; flex-shrink: 0; }
+      .market-card { padding: 1rem; }
+      .market-title { font-size: 0.9rem; }
+      .btn-bet { padding: 0.6rem; font-size: 0.85rem; }
+      .header-right { gap: 0.5rem; }
+      .balance-btn { padding: 0.4rem 0.6rem; font-size: 0.8rem; }
+      .user-avatar { width: 32px; height: 32px; }
+      .user-btn { padding: 0.3rem; font-size: 0.75rem; }
+      .leaderboard-row { padding: 0.75rem; }
+      .pending-item { flex-direction: column; gap: 0.75rem; align-items: flex-start; }
+      .pending-actions { width: 100%; display: flex; gap: 0.5rem; }
+      .pending-actions .btn-sm { flex: 1; justify-content: center; }
+      .history-card { padding: 1rem; }
+      .history-header { flex-direction: column; gap: 0.5rem; }
+      .form-input, .form-textarea { font-size: 16px; } /* Prevent iOS zoom */
+      .modal-content { margin: 0.5rem; max-height: 90vh; }
+      .confirm-modal { margin: 1rem; padding: 1.25rem; }
     }
+    
+    @media (max-width: 480px) {
+      .nav { gap: 0.25rem; }
+      .nav-link { padding: 0.35rem 0.5rem; font-size: 0.75rem; }
+      .stats-grid { grid-template-columns: 1fr; }
+      .admin-section-title { font-size: 1rem; }
+    }
+    
+    /* Skeleton Loaders */
+    @keyframes skeleton-pulse {
+      0%, 100% { opacity: 0.4; }
+      50% { opacity: 0.8; }
+    }
+    .skeleton { background: var(--bg-secondary); border-radius: 8px; animation: skeleton-pulse 1.5s ease-in-out infinite; }
+    .skeleton-card { height: 180px; border-radius: 12px; }
+    .skeleton-row { height: 60px; border-radius: 8px; margin-bottom: 0.75rem; }
+    .skeleton-text { height: 1rem; border-radius: 4px; margin-bottom: 0.5rem; }
+    .skeleton-text.short { width: 40%; }
+    .skeleton-text.medium { width: 70%; }
+    .skeleton-avatar { width: 40px; height: 40px; border-radius: 50%; }
+    .skeleton-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.25rem; }
   </style>
 </head>
 <body>
@@ -760,6 +825,51 @@
         console.error('Discord webhook error:', err);
       }
     };
+
+    // Skeleton Loaders
+    function SkeletonCard() {
+      return <div className="skeleton skeleton-card"></div>;
+    }
+    
+    function SkeletonRow() {
+      return <div className="skeleton skeleton-row"></div>;
+    }
+    
+    function MarketsSkeleton() {
+      return (
+        <main className="main">
+          <div className="skeleton skeleton-text medium" style={{ height: '2rem', marginBottom: '0.5rem' }}></div>
+          <div className="skeleton skeleton-text short" style={{ marginBottom: '1.5rem' }}></div>
+          <div className="skeleton skeleton-text" style={{ width: '100%', height: '3rem', marginBottom: '1rem' }}></div>
+          <div className="skeleton skeleton-text" style={{ width: '60%', height: '2.5rem', marginBottom: '1.5rem' }}></div>
+          <div className="skeleton-grid">
+            <SkeletonCard />
+            <SkeletonCard />
+            <SkeletonCard />
+            <SkeletonCard />
+            <SkeletonCard />
+            <SkeletonCard />
+          </div>
+        </main>
+      );
+    }
+    
+    function LeaderboardSkeleton() {
+      return (
+        <main className="main">
+          <div className="skeleton skeleton-text medium" style={{ height: '2rem', marginBottom: '0.5rem' }}></div>
+          <div className="skeleton skeleton-text short" style={{ marginBottom: '1.5rem' }}></div>
+          <div className="leaderboard">
+            <div className="skeleton skeleton-text" style={{ height: '2.5rem', marginBottom: '1rem' }}></div>
+            <SkeletonRow />
+            <SkeletonRow />
+            <SkeletonRow />
+            <SkeletonRow />
+            <SkeletonRow />
+          </div>
+        </main>
+      );
+    }
 
     function Toast({ message, type, onClose }) {
       useEffect(() => { const t = setTimeout(onClose, 3000); return () => clearTimeout(t); }, [onClose]);
@@ -854,6 +964,7 @@
             <div className="logo"><span className="logo-otc">OTC</span><span className="logo-fi">fi</span><span className="logo-pulse">Pulse</span></div>
             <nav className="nav">
               <button className={`nav-link ${activePage === 'markets' ? 'active' : ''}`} onClick={() => setActivePage('markets')}>Markets</button>
+              <button className={`nav-link ${activePage === 'history' ? 'active' : ''}`} onClick={() => setActivePage('history')}>History</button>
               <button className={`nav-link ${activePage === 'portfolio' ? 'active' : ''}`} onClick={() => setActivePage('portfolio')}>Portfolio</button>
               <button className={`nav-link ${activePage === 'leaderboard' ? 'active' : ''}`} onClick={() => setActivePage('leaderboard')}>Leaderboard</button>
               {user.is_admin && <button className={`nav-link ${activePage === 'admin' ? 'active' : ''}`} onClick={() => setActivePage('admin')}>Admin</button>}
@@ -1117,7 +1228,7 @@
       });
       
       if (loading) {
-        return <main className="main"><div className="loading"><div className="loading-spinner">⟳</div><p>Loading markets...</p></div></main>;
+        return <MarketsSkeleton />;
       }
 
       return (
@@ -1213,9 +1324,89 @@
       );
     }
 
+    function HistoryPage({ markets, loading }) {
+      const [searchTerm, setSearchTerm] = useState('');
+      const [filterCategory, setFilterCategory] = useState('All');
+      
+      const resolvedMarkets = markets
+        .filter(m => m.status === 'resolved')
+        .sort((a, b) => new Date(b.resolved_at) - new Date(a.resolved_at));
+      
+      const filtered = resolvedMarkets.filter(m => {
+        const matchesCategory = filterCategory === 'All' || m.category === filterCategory;
+        const matchesSearch = searchTerm === '' || 
+          m.ticker?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          m.company?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          m.title?.toLowerCase().includes(searchTerm.toLowerCase());
+        return matchesCategory && matchesSearch;
+      });
+
+      if (loading) {
+        return <LeaderboardSkeleton />;
+      }
+
+      return (
+        <main className="main">
+          <h1 className="page-title">Market History</h1>
+          <p className="page-subtitle">View all resolved markets and their outcomes.</p>
+          
+          <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+            <input 
+              type="text" 
+              className="form-input" 
+              placeholder="Search resolved markets..." 
+              value={searchTerm} 
+              onChange={(e) => setSearchTerm(e.target.value)}
+              style={{ flex: 1, minWidth: '200px', maxWidth: '300px' }}
+            />
+            <div className="category-filters" style={{ marginBottom: 0 }}>
+              {categories.map(cat => (
+                <button 
+                  key={cat} 
+                  className={`category-pill ${filterCategory === cat ? 'active' : ''}`} 
+                  onClick={() => setFilterCategory(cat)}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {filtered.length === 0 ? (
+            <div className="empty-state">
+              <div className="empty-state-icon">📜</div>
+              <div className="empty-state-title">No resolved markets</div>
+              <p>Markets will appear here once they're resolved.</p>
+            </div>
+          ) : (
+            <div className="history-list">
+              {filtered.map(market => (
+                <div key={market.id} className="history-card">
+                  <div className="history-header">
+                    <div className="history-ticker-row">
+                      {market.ticker && <span className="history-ticker">${market.ticker}</span>}
+                      <span className={`history-result ${market.winner === 'yes' ? 'result-yes' : 'result-no'}`}>
+                        {market.winner === 'yes' ? '✓ YES Won' : '✗ NO Won'}
+                      </span>
+                    </div>
+                    <span className="history-date">Resolved {formatDate(market.resolved_at)}</span>
+                  </div>
+                  <div className="history-title">{market.title}</div>
+                  <div className="history-meta">
+                    <span className="history-category">{market.category}</span>
+                    <span className="history-volume">{(market.volume || 0).toLocaleString()} volume</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </main>
+      );
+    }
+
     function LeaderboardPage({ leaderboard, onViewProfile, loading }) {
       if (loading) {
-        return <main className="main"><div className="loading"><div className="loading-spinner">⟳</div><p>Loading leaderboard...</p></div></main>;
+        return <LeaderboardSkeleton />;
       }
 
       return (
@@ -1433,7 +1624,7 @@
       );
     }
 
-    function AdminPage({ pendingPredictions, onApprove, onReject, onEditPending, markets, onResolve, onEditMarket, allUsers, onToggleAdmin, onBanUser, onUnbanUser, onViewProfile, loading }) {
+    function AdminPage({ pendingPredictions, onApprove, onReject, onEditPending, markets, onResolve, onEditMarket, allUsers, onToggleAdmin, onBanUser, onUnbanUser, onViewProfile, allBets, loading }) {
       const [userSearch, setUserSearch] = useState('');
       const [banConfirm, setBanConfirm] = useState(null);
       const [editItem, setEditItem] = useState(null);
@@ -1449,6 +1640,66 @@
         u.username?.toLowerCase().includes(userSearch.toLowerCase()) ||
         u.discord_id?.includes(userSearch)
       );
+
+      // CSV Export functions
+      const downloadCSV = (data, filename) => {
+        const csv = data.map(row => Object.values(row).map(v => `"${String(v || '').replace(/"/g, '""')}"`).join(',')).join('\n');
+        const headers = Object.keys(data[0] || {}).join(',');
+        const blob = new Blob([headers + '\n' + csv], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.click();
+        URL.revokeObjectURL(url);
+      };
+
+      const exportUsers = () => {
+        const data = allUsers.map(u => ({
+          username: u.username,
+          discord_id: u.discord_id,
+          total_wins: u.total_wins || 0,
+          total_bets: u.total_bets || 0,
+          is_admin: u.is_admin ? 'Yes' : 'No',
+          banned: u.banned ? 'Yes' : 'No',
+          wallet_address: u.wallet_address || '',
+          created_at: u.created_at
+        }));
+        downloadCSV(data, `otcfi-users-${new Date().toISOString().split('T')[0]}.csv`);
+      };
+
+      const exportMarkets = () => {
+        const data = markets.map(m => ({
+          ticker: m.ticker || '',
+          title: m.title,
+          category: m.category,
+          status: m.status,
+          winner: m.winner || '',
+          volume: m.volume || 0,
+          yes_percent: m.yes_percent,
+          no_percent: m.no_percent,
+          ends_at: m.ends_at,
+          resolved_at: m.resolved_at || '',
+          created_at: m.created_at
+        }));
+        downloadCSV(data, `otcfi-markets-${new Date().toISOString().split('T')[0]}.csv`);
+      };
+
+      const exportBets = () => {
+        const data = (allBets || []).map(b => {
+          const user = allUsers.find(u => u.id === b.user_id);
+          const market = markets.find(m => m.id === b.market_id);
+          return {
+            username: user?.username || 'Unknown',
+            market_ticker: market?.ticker || '',
+            market_title: market?.title || 'Unknown',
+            side: b.side,
+            result: b.result || 'pending',
+            created_at: b.created_at
+          };
+        });
+        downloadCSV(data, `otcfi-bets-${new Date().toISOString().split('T')[0]}.csv`);
+      };
 
       const openEditModal = (item, type) => {
         setEditItem(item);
@@ -1556,6 +1807,21 @@
                 </div>
               </div>
             ))}
+          </div>
+          
+          <div className="admin-section">
+            <h3 className="admin-section-title">📊 Export Data</h3>
+            <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+              <button className="btn btn-secondary" onClick={exportUsers} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                📥 Export Users
+              </button>
+              <button className="btn btn-secondary" onClick={exportMarkets} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                📥 Export Markets
+              </button>
+              <button className="btn btn-secondary" onClick={exportBets} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                📥 Export Bets
+              </button>
+            </div>
           </div>
           
           {banConfirm && (
@@ -2368,10 +2634,11 @@
         <AppContext.Provider value={{ weeklyBetUsed, userBets }}>
           <Header user={user} activePage={activePage} setActivePage={setActivePage} onLogout={handleLogout} onViewProfile={handleViewProfile} />
           {activePage === 'markets' && <MarketsPage markets={markets} onMarketClick={setSelectedMarket} onCreateClick={() => setShowCreateModal(true)} weeklyBetUsed={weeklyBetUsed} loading={loading} activityLog={activityLog} showActivity={showActivity} onToggleActivity={() => setShowActivity(!showActivity)} />}
+          {activePage === 'history' && <HistoryPage markets={markets} loading={loading} />}
           {activePage === 'portfolio' && <PortfolioPage userBets={userBets} markets={markets} />}
           {activePage === 'leaderboard' && <LeaderboardPage leaderboard={leaderboard} onViewProfile={handleViewProfile} loading={loading} />}
           {activePage === 'profile' && <ProfilePage profileUser={profileUser} currentUser={user} userBets={allBets} markets={markets} onUpdateProfile={handleUpdateProfile} onViewProfile={handleViewProfile} loading={loading} />}
-          {activePage === 'admin' && user.is_admin && <AdminPage pendingPredictions={pendingPredictions} onApprove={handleApprovePrediction} onReject={handleRejectPrediction} onEditPending={handleEditPending} markets={markets} onResolve={handleResolveMarket} onEditMarket={handleEditMarket} allUsers={allUsers} onToggleAdmin={handleToggleAdmin} onBanUser={handleBanUser} onUnbanUser={handleUnbanUser} onViewProfile={handleViewProfile} loading={loading} />}
+          {activePage === 'admin' && user.is_admin && <AdminPage pendingPredictions={pendingPredictions} onApprove={handleApprovePrediction} onReject={handleRejectPrediction} onEditPending={handleEditPending} markets={markets} onResolve={handleResolveMarket} onEditMarket={handleEditMarket} allUsers={allUsers} onToggleAdmin={handleToggleAdmin} onBanUser={handleBanUser} onUnbanUser={handleUnbanUser} onViewProfile={handleViewProfile} allBets={allBets} loading={loading} />}
           {selectedMarket && <MarketDetail market={selectedMarket} onClose={() => setSelectedMarket(null)} onBet={handleBet} weeklyBetUsed={weeklyBetUsed} userBet={currentUserBet} />}
           {showCreateModal && <CreateModal onClose={() => setShowCreateModal(false)} onSubmit={handleCreatePrediction} user={user} />}
           <div className="toast-container">{toasts.map(toast => <Toast key={toast.id} message={toast.message} type={toast.type} onClose={() => removeToast(toast.id)} />)}</div>
