@@ -2543,10 +2543,7 @@
 
       const handleClearActivity = async () => {
         try {
-          const { error } = await supabase
-            .from('activity_log')
-            .delete()
-            .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all
+          const { error } = await supabase.rpc('clear_activity_log');
           
           if (error) throw error;
           setActivityLog([]);
@@ -2559,10 +2556,7 @@
 
       const handleClearHistory = async () => {
         try {
-          const { error } = await supabase
-            .from('markets')
-            .delete()
-            .eq('status', 'resolved');
+          const { error } = await supabase.rpc('clear_resolved_markets');
           
           if (error) throw error;
           setMarkets(markets.filter(m => m.status !== 'resolved'));
