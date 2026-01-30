@@ -1414,9 +1414,8 @@
       );
     }
 
-    function AdminPage({ pendingPredictions, onApprove, onReject, markets, onResolve, allUsers, onToggleAdmin, onDeleteUser, onBanUser, onUnbanUser, loading }) {
+    function AdminPage({ pendingPredictions, onApprove, onReject, markets, onResolve, allUsers, onToggleAdmin, onBanUser, onUnbanUser, onViewProfile, loading }) {
       const [userSearch, setUserSearch] = useState('');
-      const [deleteConfirm, setDeleteConfirm] = useState(null);
       const [banConfirm, setBanConfirm] = useState(null);
       
       const activeMarkets = markets.filter(m => m.status === 'active');
@@ -1475,7 +1474,7 @@
             />
             {filteredUsers.length === 0 ? <p style={{ color: 'var(--text-muted)' }}>No users found</p> : filteredUsers.map(u => (
               <div key={u.id} className="pending-item" style={u.banned ? { opacity: 0.6, background: 'rgba(239, 68, 68, 0.1)' } : {}}>
-                <div className="pending-info" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <div className="pending-info" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer' }} onClick={() => onViewProfile(u.id)}>
                   <div className="leaderboard-avatar" style={{ width: '32px', height: '32px', borderRadius: '6px', flexShrink: 0 }}>
                     {u.avatar_url ? <img src={u.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '6px' }} /> : u.username?.substring(0, 2).toUpperCase()}
                   </div>
@@ -1499,27 +1498,10 @@
                   ) : (
                     <button className="btn-sm btn-reject" onClick={() => setBanConfirm(u)} style={{ marginLeft: '0.5rem' }}>Ban</button>
                   )}
-                  <button className="btn-sm btn-reject" onClick={() => setDeleteConfirm(u)} style={{ marginLeft: '0.5rem' }}>Kick</button>
                 </div>
               </div>
             ))}
           </div>
-          
-          {deleteConfirm && (
-            <ConfirmModal
-              icon="👢"
-              title="Kick User?"
-              message={`Are you sure you want to kick ${deleteConfirm.username}? They can rejoin with Discord.`}
-              details={[
-                { label: "Username", value: deleteConfirm.username },
-                { label: "Wins", value: deleteConfirm.total_wins || 0 }
-              ]}
-              warning="This will delete their account and bets, but they can create a new account."
-              confirmText="Kick User"
-              onConfirm={() => { onDeleteUser(deleteConfirm.id); setDeleteConfirm(null); }}
-              onCancel={() => setDeleteConfirm(null)}
-            />
-          )}
           
           {banConfirm && (
             <ConfirmModal
@@ -2140,7 +2122,7 @@
           {activePage === 'portfolio' && <PortfolioPage userBets={userBets} markets={markets} />}
           {activePage === 'leaderboard' && <LeaderboardPage leaderboard={leaderboard} onViewProfile={handleViewProfile} loading={loading} />}
           {activePage === 'profile' && <ProfilePage profileUser={profileUser} currentUser={user} userBets={allBets} markets={markets} onUpdateProfile={handleUpdateProfile} onViewProfile={handleViewProfile} loading={loading} />}
-          {activePage === 'admin' && user.is_admin && <AdminPage pendingPredictions={pendingPredictions} onApprove={handleApprovePrediction} onReject={handleRejectPrediction} markets={markets} onResolve={handleResolveMarket} allUsers={allUsers} onToggleAdmin={handleToggleAdmin} onDeleteUser={handleDeleteUser} onBanUser={handleBanUser} onUnbanUser={handleUnbanUser} loading={loading} />}
+          {activePage === 'admin' && user.is_admin && <AdminPage pendingPredictions={pendingPredictions} onApprove={handleApprovePrediction} onReject={handleRejectPrediction} markets={markets} onResolve={handleResolveMarket} allUsers={allUsers} onToggleAdmin={handleToggleAdmin} onBanUser={handleBanUser} onUnbanUser={handleUnbanUser} onViewProfile={handleViewProfile} loading={loading} />}
           {selectedMarket && <MarketDetail market={selectedMarket} onClose={() => setSelectedMarket(null)} onBet={handleBet} weeklyBetUsed={weeklyBetUsed} userBet={currentUserBet} />}
           {showCreateModal && <CreateModal onClose={() => setShowCreateModal(false)} onSubmit={handleCreatePrediction} user={user} />}
           <div className="toast-container">{toasts.map(toast => <Toast key={toast.id} message={toast.message} type={toast.type} onClose={() => removeToast(toast.id)} />)}</div>
