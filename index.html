@@ -1158,50 +1158,39 @@
         setCompany('');
       };
 
-      // Lookup ticker using free API
-      const lookupTicker = async (tickerToLookup) => {
-        if (!tickerToLookup || tickerToLookup.length < 2) return;
+      // Lookup ticker using free API (manual trigger)
+      const handleLookupTicker = async () => {
+        if (!ticker || ticker.length < 1) return;
         
         setTickerStatus('checking');
         setTickerError('');
         
         try {
-          // Using Financial Modeling Prep API (free tier)
-          const response = await fetch(`https://financialmodelingprep.com/api/v3/profile/${tickerToLookup}?apikey=demo`);
+          // Using Financial Modeling Prep API
+          const response = await fetch(`https://financialmodelingprep.com/api/v3/profile/${ticker}?apikey=demo`);
           const data = await response.json();
           
           if (data && data.length > 0 && data[0].companyName) {
             const stock = data[0];
             const exchange = stock.exchangeShortName || stock.exchange || '';
             
-            // Check if it's OTC (Pink Sheets, OTCQB, OTCQX, Grey Market, etc.)
+            // Check if it's OTC
             const isOTC = exchange.includes('OTC') || 
                           exchange.includes('PINK') || 
                           exchange.includes('GREY') ||
                           exchange === 'PNK' ||
-                          !exchange; // Some OTC stocks don't have exchange listed
+                          !exchange;
             
+            setCompany(stock.companyName);
             if (isOTC || exchange === '') {
-              setCompany(stock.companyName);
               setTickerStatus('valid');
             } else {
-              setTickerError(`${tickerToLookup} is on ${exchange}, not OTC`);
+              setTickerError(`Listed on ${exchange}, not OTC`);
               setTickerStatus('not-otc');
-              setCompany(stock.companyName);
             }
           } else {
-            // Try alternative search
-            const searchResponse = await fetch(`https://financialmodelingprep.com/api/v3/search?query=${tickerToLookup}&limit=5&apikey=demo`);
-            const searchData = await searchResponse.json();
-            
-            const exactMatch = searchData?.find(s => s.symbol === tickerToLookup);
-            if (exactMatch) {
-              setCompany(exactMatch.name || '');
-              setTickerStatus('valid');
-            } else {
-              setTickerStatus('invalid');
-              setTickerError('Not found - enter company manually');
-            }
+            setTickerStatus('invalid');
+            setTickerError('Not found - enter manually');
           }
         } catch (err) {
           console.error('Ticker lookup error:', err);
@@ -1209,20 +1198,6 @@
           setTickerError('Lookup failed - enter manually');
         }
       };
-
-      // Auto-lookup when ticker changes (debounced)
-      useEffect(() => {
-        if (!ticker || ticker.length < 2 || noTicker) {
-          setTickerStatus(null);
-          return;
-        }
-        
-        const timer = setTimeout(() => {
-          lookupTicker(ticker);
-        }, 600); // Wait 600ms after typing stops
-        
-        return () => clearTimeout(timer);
-      }, [ticker, noTicker]);
       
       // Display ticker with $ prefix
       const displayTicker = ticker ? `$${ticker}` : '';
@@ -1286,29 +1261,43 @@
                     <>
                       <div className="form-group">
                         <label className="form-label">Ticker Symbol</label>
-                        <div style={{ display: 'flex', alignItems: 'center' }}>
-                          <span style={{ padding: '0.75rem', background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRight: 'none', borderRadius: '8px 0 0 8px', color: 'var(--text-secondary)' }}>$</span>
-                          <input type="text" className="form-input" placeholder="e.g., MVCO" value={ticker} onChange={handleTickerChange} maxLength={5} required={!noTicker} style={{ borderRadius: '0 8px 8px 0', borderColor: tickerStatus === 'valid' ? 'var(--green)' : tickerStatus === 'invalid' || tickerStatus === 'not-otc' ? 'var(--orange)' : undefined }} />
-                          <span style={{ marginLeft: '0.5rem', fontSize: '1rem' }}>
-                            {tickerStatus === 'checking' && '⏳'}
-                            {tickerStatus === 'valid' && '✅'}
-                            {tickerStatus === 'not-otc' && '⚠️'}
-                            {tickerStatus === 'invalid' && '❌'}
-                          </span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', flex: 1 }}>
+                            <span style={{ padding: '0.75rem', background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRight: 'none', borderRadius: '8px 0 0 8px', color: 'var(--text-secondary)' }}>$</span>
+                            <input type="text" className="form-input" placeholder="e.g., MVCO" value={ticker} onChange={handleTickerChange} maxLength={5} required={!noTicker} style={{ borderRadius: '0 8px 8px 0' }} />
+                          </div>
+                          <button 
+                            type="button" 
+                            onClick={handleLookupTicker} 
+                            disabled={!ticker || tickerStatus === 'checking'}
+                            style={{ 
+                              padding: '0.75rem 1rem', 
+                              background: tickerStatus === 'valid' ? 'var(--green)' : tickerStatus === 'checking' ? 'var(--bg-secondary)' : 'var(--accent)', 
+                              color: 'white', 
+                              border: 'none', 
+                              borderRadius: '8px', 
+                              cursor: ticker && tickerStatus !== 'checking' ? 'pointer' : 'not-allowed',
+                              fontSize: '0.85rem',
+                              whiteSpace: 'nowrap',
+                              opacity: !ticker ? 0.5 : 1
+                            }}
+                          >
+                            {tickerStatus === 'checking' ? '⏳' : tickerStatus === 'valid' ? '✅' : '🔍 Lookup'}
+                          </button>
                         </div>
                         {tickerError && (
-                          <p style={{ color: tickerStatus === 'not-otc' ? 'var(--orange)' : 'var(--text-muted)', fontSize: '0.75rem', marginTop: '0.25rem' }}>
+                          <p style={{ color: 'var(--orange)', fontSize: '0.75rem', marginTop: '0.25rem' }}>
                             {tickerError}
                           </p>
                         )}
-                        {!tickerError && ticker.length < 2 && (
+                        {!tickerError && (
                           <p style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginTop: '0.25rem' }}>
-                            Auto-validates OTC tickers & fills company name
+                            Click Lookup to verify & autofill company (optional)
                           </p>
                         )}
                       </div>
                       <div className="form-group">
-                        <label className="form-label">Company Name {tickerStatus === 'valid' && <span style={{ color: 'var(--green)', fontSize: '0.75rem' }}>✓ Auto-filled</span>}</label>
+                        <label className="form-label">Company Name {tickerStatus === 'valid' && company && <span style={{ color: 'var(--green)', fontSize: '0.75rem' }}>✓ Auto-filled</span>}</label>
                         <input type="text" className="form-input" placeholder="e.g., Metavesco Inc" value={company} onChange={(e) => setCompany(e.target.value)} required={!noTicker} />
                       </div>
                     </>
