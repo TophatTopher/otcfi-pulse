@@ -955,8 +955,8 @@
 
     function Header({ user, activePage, setActivePage, onLogout, onViewProfile }) {
       const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
-      const avatarUrl = user.avatar_url || user.user_metadata?.avatar_url;
-      const username = user.username || user.user_metadata?.full_name || user.user_metadata?.name || 'User';
+      const avatarUrl = user.custom_avatar_url || user.avatar_url || user.user_metadata?.avatar_url;
+      const displayName = user.display_name || user.username || user.user_metadata?.full_name || user.user_metadata?.name || 'User';
 
       return (
         <>
@@ -970,13 +970,26 @@
               {user.is_admin && <button className={`nav-link ${activePage === 'admin' ? 'active' : ''}`} onClick={() => setActivePage('admin')}>Admin</button>}
             </nav>
             <div className="header-right">
-              <div className="balance-btn profile-link" onClick={() => onViewProfile(user.id)} style={{ cursor: 'pointer' }}>
-                <span>👤</span>
-                <span>{username}</span>
-              </div>
-              <div className="user-avatar profile-link" onClick={() => onViewProfile(user.id)} style={{ cursor: 'pointer' }}>
-                {avatarUrl ? <img src={avatarUrl} alt="Avatar" /> : '👤'}
-              </div>
+              <button 
+                className="profile-btn" 
+                onClick={() => onViewProfile(user.id)}
+                style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '0.5rem', 
+                  background: 'var(--bg-secondary)', 
+                  border: '1px solid var(--border)', 
+                  borderRadius: '20px', 
+                  padding: '0.35rem 0.75rem 0.35rem 0.35rem',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s'
+                }}
+              >
+                <div className="user-avatar" style={{ width: '28px', height: '28px', margin: 0 }}>
+                  {avatarUrl ? <img src={avatarUrl} alt="Avatar" /> : '👤'}
+                </div>
+                <span style={{ color: 'var(--text-primary)', fontWeight: 500, fontSize: '0.9rem' }}>{displayName}</span>
+              </button>
               <button className="user-btn" onClick={() => setShowLogoutConfirm(true)} title="Logout">❌</button>
             </div>
           </header>
@@ -1122,10 +1135,27 @@
       const [company, setCompany] = useState('');
       const [endsAt, setEndsAt] = useState('');
       const [showConfirm, setShowConfirm] = useState(false);
+      const [showCloseConfirm, setShowCloseConfirm] = useState(false);
       const [loading, setLoading] = useState(false);
+      const [noTicker, setNoTicker] = useState(false);
 
       const isPriceCategory = category === 'Price';
       const minDate = getTodayDate();
+      const hasContent = title || ticker || company || endsAt;
+
+      // Auto-format ticker (remove $ and spaces, uppercase)
+      const handleTickerChange = (e) => {
+        const value = e.target.value.replace(/[$\s]/g, '').toUpperCase();
+        setTicker(value);
+      };
+
+      const handleClose = () => {
+        if (hasContent) {
+          setShowCloseConfirm(true);
+        } else {
+          onClose();
+        }
+      };
 
       const handleSubmit = (e) => {
         e.preventDefault();
@@ -1137,8 +1167,8 @@
         const data = {
           title,
           category,
-          ticker: ticker.toUpperCase() || null,
-          company: company || null,
+          ticker: noTicker ? null : ticker.toUpperCase() || null,
+          company: noTicker ? null : company || null,
           ends_at: endsAt,
           created_by: user.id
         };
@@ -1152,11 +1182,11 @@
 
       return (
         <>
-          <div className="modal-overlay" onClick={onClose}>
+          <div className="modal-overlay" onClick={handleClose}>
             <div className="create-modal" onClick={e => e.stopPropagation()}>
               <div className="create-modal-header">
                 <h2 className="create-modal-title">Suggest a Prediction</h2>
-                <button className="close-btn" onClick={onClose}>×</button>
+                <button className="close-btn" onClick={handleClose}>×</button>
               </div>
               <form onSubmit={handleSubmit}>
                 <div className="create-modal-body">
@@ -1169,16 +1199,26 @@
                     </div>
                   </div>
                   <div className="form-group">
-                    <label className="form-label">Ticker Symbol</label>
-                    <input type="text" className="form-input" placeholder="e.g., MVCO" value={ticker} onChange={(e) => setTicker(e.target.value)} maxLength={5} required />
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                      <input type="checkbox" checked={noTicker} onChange={(e) => setNoTicker(e.target.checked)} style={{ width: 'auto' }} />
+                      Not tied to a specific ticker
+                    </label>
                   </div>
-                  <div className="form-group">
-                    <label className="form-label">Company Name</label>
-                    <input type="text" className="form-input" placeholder="e.g., Metavesco Inc" value={company} onChange={(e) => setCompany(e.target.value)} required />
-                  </div>
+                  {!noTicker && (
+                    <>
+                      <div className="form-group">
+                        <label className="form-label">Ticker Symbol</label>
+                        <input type="text" className="form-input" placeholder="e.g., MVCO" value={ticker} onChange={handleTickerChange} maxLength={5} required={!noTicker} />
+                      </div>
+                      <div className="form-group">
+                        <label className="form-label">Company Name</label>
+                        <input type="text" className="form-input" placeholder="e.g., Metavesco Inc" value={company} onChange={(e) => setCompany(e.target.value)} required={!noTicker} />
+                      </div>
+                    </>
+                  )}
                   <div className="form-group">
                     <label className="form-label">{isPriceCategory ? 'Prediction Question' : 'Prediction Title'}</label>
-                    <textarea className="form-textarea" placeholder={isPriceCategory ? "e.g., Will MVCO close above $0.01 this week?" : "e.g., New partnership announced this month"} value={title} onChange={(e) => setTitle(e.target.value)} required />
+                    <textarea className="form-textarea" placeholder={noTicker ? "e.g., Will an OTC company migrate to NASDAQ this month?" : (isPriceCategory ? "e.g., Will MVCO close above $0.01 this week?" : "e.g., New partnership announced this month")} value={title} onChange={(e) => setTitle(e.target.value)} required />
                   </div>
                   <div className="form-group">
                     <label className="form-label">Resolution Date</label>
@@ -1186,7 +1226,7 @@
                   </div>
                 </div>
                 <div className="create-modal-footer">
-                  <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
+                  <button type="button" className="btn btn-secondary" onClick={handleClose}>Cancel</button>
                   <button type="submit" className="btn btn-primary" style={{width:'auto'}}>Submit for Review</button>
                 </div>
               </form>
@@ -1200,14 +1240,28 @@
               message="Your prediction will be sent to admins for review before going live."
               details={[
                 { label: "Category", value: category },
-                { label: "Ticker", value: ticker.toUpperCase() },
-                { label: "Company", value: company },
+                ...(noTicker ? [] : [
+                  { label: "Ticker", value: `$${ticker.toUpperCase()}` },
+                  { label: "Company", value: company }
+                ]),
                 { label: "Prediction", value: title.length > 50 ? title.substring(0, 50) + '...' : title },
                 { label: "Resolution Date", value: formattedDate }
               ]}
               confirmText={loading ? "Submitting..." : "Submit Prediction"}
               onConfirm={handleConfirmSubmit}
               onCancel={() => setShowConfirm(false)}
+            />
+          )}
+
+          {showCloseConfirm && (
+            <ConfirmModal
+              icon="⚠️"
+              title="Discard Prediction?"
+              message="You have unsaved changes. Are you sure you want to close?"
+              confirmText="Discard"
+              cancelText="Keep Editing"
+              onConfirm={onClose}
+              onCancel={() => setShowCloseConfirm(false)}
             />
           )}
         </>
@@ -1466,9 +1520,9 @@
                   <span className={`leaderboard-rank ${i === 0 ? 'gold' : i === 1 ? 'silver' : i === 2 ? 'bronze' : ''}`}>#{i + 1}</span>
                   <div className="leaderboard-user">
                     <div className="leaderboard-avatar">
-                      {user.avatar_url ? <img src={user.avatar_url} alt="" /> : user.username?.substring(0, 2).toUpperCase()}
+                      {(user.custom_avatar_url || user.avatar_url) ? <img src={user.custom_avatar_url || user.avatar_url} alt="" /> : user.username?.substring(0, 2).toUpperCase()}
                     </div>
-                    <span className="leaderboard-name">{user.username}</span>
+                    <span className="leaderboard-name">{user.display_name || user.username}</span>
                   </div>
                   <div className="leaderboard-stats">
                     <span className="leaderboard-wins">{user.total_wins || 0} wins</span>
@@ -1481,8 +1535,10 @@
       );
     }
 
-    function ProfilePage({ profileUser, currentUser, userBets, markets, onUpdateProfile, onViewProfile, loading }) {
+    function ProfilePage({ profileUser, currentUser, userBets, markets, onUpdateProfile, onViewProfile, pendingPredictions, loading }) {
       const [walletAddress, setWalletAddress] = useState(profileUser?.wallet_address || '');
+      const [displayName, setDisplayName] = useState(profileUser?.display_name || '');
+      const [customAvatarUrl, setCustomAvatarUrl] = useState(profileUser?.custom_avatar_url || '');
       const [profilePrivate, setProfilePrivate] = useState(profileUser?.profile_private || false);
       const [historyPrivate, setHistoryPrivate] = useState(profileUser?.betting_history_private || false);
       const [historyFilter, setHistoryFilter] = useState('all');
@@ -1507,6 +1563,9 @@
         })
         .filter(b => b.market);
 
+      // Get user's submission history
+      const userSubmissions = (pendingPredictions || []).filter(p => p.created_by === profileUser?.id);
+
       const filteredHistory = userMarketBets.filter(bet => {
         if (historyFilter === 'all') return true;
         if (historyFilter === 'wins') return bet.result === 'won';
@@ -1519,6 +1578,8 @@
         setSaving(true);
         await onUpdateProfile({
           wallet_address: walletAddress,
+          display_name: displayName || null,
+          custom_avatar_url: customAvatarUrl || null,
           profile_private: profilePrivate,
           betting_history_private: historyPrivate
         });
@@ -1532,6 +1593,9 @@
         return new Date(date).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
       };
 
+      const avatarUrl = profileUser?.custom_avatar_url || profileUser?.avatar_url;
+      const shownDisplayName = profileUser?.display_name || profileUser?.username;
+
       if (loading || !profileUser) {
         return <main className="main"><div className="loading"><div className="loading-spinner">⟳</div><p>Loading profile...</p></div></main>;
       }
@@ -1542,10 +1606,11 @@
           <main className="main">
             <div className="profile-header">
               <div className="profile-avatar-large">
-                {profileUser.avatar_url ? <img src={profileUser.avatar_url} alt="" /> : profileUser.username?.substring(0, 2).toUpperCase()}
+                {avatarUrl ? <img src={avatarUrl} alt="" /> : profileUser.username?.substring(0, 2).toUpperCase()}
               </div>
               <div className="profile-info">
-                <h1 className="profile-username">{profileUser.username}</h1>
+                <h1 className="profile-username">{shownDisplayName}</h1>
+                {profileUser.display_name && <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>@{profileUser.username}</p>}
                 <p className="profile-private-notice">🔒 This profile is private</p>
               </div>
             </div>
@@ -1563,13 +1628,14 @@
         <main className="main">
           <div className="profile-header">
             <div className="profile-avatar-large">
-              {profileUser.avatar_url ? <img src={profileUser.avatar_url} alt="" /> : profileUser.username?.substring(0, 2).toUpperCase()}
+              {avatarUrl ? <img src={avatarUrl} alt="" /> : profileUser.username?.substring(0, 2).toUpperCase()}
             </div>
             <div className="profile-info">
               <h1 className="profile-username">
-                {profileUser.username}
+                {shownDisplayName}
                 {profileUser.is_admin && <span className="admin-badge">ADMIN</span>}
               </h1>
+              {profileUser.display_name && <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '0.25rem' }}>@{profileUser.username}</p>}
               <p className="profile-joined">Member since {formatJoinDate(profileUser.created_at)}</p>
             </div>
           </div>
@@ -1587,6 +1653,35 @@
 
           {isOwnProfile && (
             <div className="profile-section">
+              <h3 className="profile-section-title">✨ Customize Profile</h3>
+              <div className="form-group">
+                <label className="form-label">Display Name</label>
+                <input 
+                  type="text" 
+                  className="form-input" 
+                  placeholder="Leave blank to use Discord name" 
+                  value={displayName} 
+                  onChange={(e) => setDisplayName(e.target.value)}
+                  maxLength={20}
+                />
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginTop: '0.25rem' }}>Your Discord username (@{profileUser.username}) will still be visible</p>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Custom Avatar URL</label>
+                <input 
+                  type="url" 
+                  className="form-input" 
+                  placeholder="https://example.com/avatar.png" 
+                  value={customAvatarUrl} 
+                  onChange={(e) => setCustomAvatarUrl(e.target.value)}
+                />
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginTop: '0.25rem' }}>Leave blank to use your Discord avatar</p>
+              </div>
+            </div>
+          )}
+
+          {isOwnProfile && (
+            <div className="profile-section">
               <h3 className="profile-section-title">💰 Wallet Address</h3>
               <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '0.75rem' }}>For future payouts. Only visible to you and admins.</p>
               <input 
@@ -1595,7 +1690,6 @@
                 placeholder="Enter your wallet address..." 
                 value={walletAddress} 
                 onChange={(e) => setWalletAddress(e.target.value)}
-                style={{ marginBottom: '1rem' }}
               />
             </div>
           )}
@@ -1630,6 +1724,23 @@
             </div>
           )}
 
+          {isOwnProfile && userSubmissions.length > 0 && (
+            <div className="profile-section">
+              <h3 className="profile-section-title">📝 My Submissions (Pending)</h3>
+              <div className="history-list">
+                {userSubmissions.map(sub => (
+                  <div key={sub.id} className="history-item">
+                    <div className="history-info">
+                      <div className="history-market">{sub.ticker && <span className="ticker-badge" style={{ marginRight: '0.5rem' }}>${sub.ticker}</span>}{sub.title}</div>
+                      <div className="history-meta">{sub.category} • Submitted {formatDate(sub.created_at)}</div>
+                    </div>
+                    <div className="history-result pending">⏳ Pending Review</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {(canSeePrivate || !profileUser.betting_history_private) && (
             <div className="profile-section">
               <h3 className="profile-section-title">📜 Betting History</h3>
@@ -1651,7 +1762,7 @@
                   {filteredHistory.map(bet => (
                     <div key={bet.id} className="history-item">
                       <div className="history-info">
-                        <div className="history-market">{bet.market?.ticker && <span className="ticker-badge" style={{ marginRight: '0.5rem' }}>{bet.market.ticker}</span>}{bet.market?.title}</div>
+                        <div className="history-market">{bet.market?.ticker && <span className="ticker-badge" style={{ marginRight: '0.5rem' }}>${bet.market.ticker}</span>}{bet.market?.title}</div>
                         <div className="history-meta">Picked: <span className={bet.side === 'yes' ? 'text-green' : 'text-red'}>{bet.side?.toUpperCase()}</span></div>
                       </div>
                       <div className={`history-result ${bet.result || 'pending'}`}>
@@ -2788,7 +2899,7 @@
           {activePage === 'history' && <HistoryPage markets={markets} loading={loading} isAdmin={user.is_admin} onClearHistory={handleClearHistory} />}
           {activePage === 'portfolio' && <PortfolioPage userBets={userBets} markets={markets} />}
           {activePage === 'leaderboard' && <LeaderboardPage leaderboard={leaderboard} onViewProfile={handleViewProfile} loading={loading} />}
-          {activePage === 'profile' && <ProfilePage profileUser={profileUser} currentUser={user} userBets={allBets} markets={markets} onUpdateProfile={handleUpdateProfile} onViewProfile={handleViewProfile} loading={loading} />}
+          {activePage === 'profile' && <ProfilePage profileUser={profileUser} currentUser={user} userBets={allBets} markets={markets} onUpdateProfile={handleUpdateProfile} onViewProfile={handleViewProfile} pendingPredictions={pendingPredictions} loading={loading} />}
           {activePage === 'admin' && user.is_admin && <AdminPage pendingPredictions={pendingPredictions} onApprove={handleApprovePrediction} onReject={handleRejectPrediction} onEditPending={handleEditPending} markets={markets} onResolve={handleResolveMarket} onEditMarket={handleEditMarket} allUsers={allUsers} onToggleAdmin={handleToggleAdmin} onBanUser={handleBanUser} onUnbanUser={handleUnbanUser} onViewProfile={handleViewProfile} allBets={allBets} loading={loading} />}
           {selectedMarket && <MarketDetail market={selectedMarket} onClose={() => setSelectedMarket(null)} onBet={handleBet} weeklyBetUsed={weeklyBetUsed} userBet={currentUserBet} />}
           {showCreateModal && <CreateModal onClose={() => setShowCreateModal(false)} onSubmit={handleCreatePrediction} user={user} />}
