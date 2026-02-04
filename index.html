@@ -2456,11 +2456,19 @@
             .on('postgres_changes', { event: '*', schema: 'public', table: 'pending_predictions' }, (payload) => {
               console.log('Pending change:', payload);
               if (payload.eventType === 'INSERT') {
-                setPendingPredictions(prev => [payload.new, ...prev]);
+                // Only add if status is pending or null
+                if (!payload.new.status || payload.new.status === 'pending') {
+                  setPendingPredictions(prev => [payload.new, ...prev]);
+                }
               } else if (payload.eventType === 'DELETE') {
                 setPendingPredictions(prev => prev.filter(p => p.id !== payload.old.id));
               } else if (payload.eventType === 'UPDATE') {
-                setPendingPredictions(prev => prev.map(p => p.id === payload.new.id ? payload.new : p));
+                // If approved/rejected, remove from list; otherwise update
+                if (payload.new.status === 'approved' || payload.new.status === 'rejected') {
+                  setPendingPredictions(prev => prev.filter(p => p.id !== payload.new.id));
+                } else {
+                  setPendingPredictions(prev => prev.map(p => p.id === payload.new.id ? payload.new : p));
+                }
               }
             })
             .subscribe();
@@ -2700,8 +2708,11 @@
 
           if (updateError) throw updateError;
 
-          // Update local state (use functional update to avoid stale state)
-          setPendingPredictions(prev => prev.map(p => p.id === pred.id ? { ...p, status: 'approved' } : p));
+          // Update local state - remove from pending, add to markets
+          setPendingPredictions(prev => prev.filter(p => p.id !== pred.id));
+          if (marketData) {
+            setMarkets(prev => [marketData, ...prev]);
+          }
 
           // Log activity
           const activityMessage = `New market: ${pred.ticker ? '$' + pred.ticker + ' - ' : ''}${pred.title.substring(0, 35)}`;
@@ -2710,7 +2721,7 @@
             .insert([{ type: 'new_market', market_id: marketData?.id, message: activityMessage }]);
           
           const newActivity = { id: Date.now(), type: 'new_market', message: activityMessage, created_at: new Date().toISOString() };
-          setActivityLog([newActivity, ...activityLog]);
+          setActivityLog(prev => [newActivity, ...prev]);
 
           // Discord notification
           sendDiscordNotification(null, {
@@ -2722,7 +2733,6 @@
             url: 'https://pulse.otcfi.io'
           });
 
-          await refreshData();
           addToast('Prediction approved!');
         } catch (err) {
           console.error('Error approving prediction:', err);
@@ -2738,7 +2748,7 @@
             .eq('id', id);
 
           if (error) throw error;
-          setPendingPredictions(prev => prev.map(p => p.id === id ? { ...p, status: 'rejected' } : p));
+          setPendingPredictions(prev => prev.filter(p => p.id !== id));
           addToast('Prediction rejected', 'error');
         } catch (err) {
           console.error('Error rejecting prediction:', err);
