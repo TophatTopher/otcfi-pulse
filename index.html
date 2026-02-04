@@ -1535,15 +1535,19 @@
       );
     }
 
-    function ProfilePage({ profileUser, currentUser, userBets, markets, onUpdateProfile, onViewProfile, pendingPredictions, loading }) {
-      const [walletAddress, setWalletAddress] = useState(profileUser?.wallet_address || '');
-      const [displayName, setDisplayName] = useState(profileUser?.display_name || '');
-      const [customAvatarUrl, setCustomAvatarUrl] = useState(profileUser?.custom_avatar_url || '');
+    function ProfilePage({ profileUser, currentUser, userBets, markets, onUpdateProfile, onViewProfile, userSubmissions, loading }) {
       const [profilePrivate, setProfilePrivate] = useState(profileUser?.profile_private || false);
       const [historyPrivate, setHistoryPrivate] = useState(profileUser?.betting_history_private || false);
       const [historyFilter, setHistoryFilter] = useState('all');
+      const [submissionFilter, setSubmissionFilter] = useState('all');
       const [saving, setSaving] = useState(false);
       const [saved, setSaved] = useState(false);
+      const [showEditModal, setShowEditModal] = useState(false);
+      
+      // Edit modal state
+      const [editDisplayName, setEditDisplayName] = useState(profileUser?.display_name || '');
+      const [editAvatarUrl, setEditAvatarUrl] = useState(profileUser?.custom_avatar_url || '');
+      const [editWallet, setEditWallet] = useState(profileUser?.wallet_address || '');
 
       const isOwnProfile = currentUser.id === profileUser?.id;
       const isAdmin = currentUser.is_admin;
@@ -1563,8 +1567,11 @@
         })
         .filter(b => b.market);
 
-      // Get user's submission history
-      const userSubmissions = (pendingPredictions || []).filter(p => p.created_by === profileUser?.id);
+      // Filter user submissions
+      const filteredSubmissions = (userSubmissions || []).filter(sub => {
+        if (submissionFilter === 'all') return true;
+        return sub.status === submissionFilter;
+      });
 
       const filteredHistory = userMarketBets.filter(bet => {
         if (historyFilter === 'all') return true;
@@ -1574,18 +1581,30 @@
         return true;
       });
 
-      const handleSave = async () => {
+      const handleSavePrivacy = async () => {
         setSaving(true);
         await onUpdateProfile({
-          wallet_address: walletAddress,
-          display_name: displayName || null,
-          custom_avatar_url: customAvatarUrl || null,
           profile_private: profilePrivate,
           betting_history_private: historyPrivate
         });
         setSaving(false);
         setSaved(true);
         setTimeout(() => setSaved(false), 2000);
+      };
+
+      const handleSaveProfile = async () => {
+        setSaving(true);
+        await onUpdateProfile({
+          display_name: editDisplayName || null,
+          custom_avatar_url: editAvatarUrl || null,
+          wallet_address: editWallet || null
+        });
+        setSaving(false);
+        setShowEditModal(false);
+      };
+
+      const handleRemoveWallet = async () => {
+        await onUpdateProfile({ wallet_address: null });
       };
 
       const formatJoinDate = (date) => {
@@ -1637,6 +1656,15 @@
               </h1>
               {profileUser.display_name && <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '0.25rem' }}>@{profileUser.username}</p>}
               <p className="profile-joined">Member since {formatJoinDate(profileUser.created_at)}</p>
+              {isOwnProfile && (
+                <button 
+                  className="btn btn-secondary" 
+                  onClick={() => setShowEditModal(true)}
+                  style={{ marginTop: '0.75rem', fontSize: '0.85rem' }}
+                >
+                  ✏️ Edit Profile
+                </button>
+              )}
             </div>
           </div>
 
@@ -1651,53 +1679,22 @@
             </div>
           </div>
 
-          {isOwnProfile && (
-            <div className="profile-section">
-              <h3 className="profile-section-title">✨ Customize Profile</h3>
-              <div className="form-group">
-                <label className="form-label">Display Name</label>
-                <input 
-                  type="text" 
-                  className="form-input" 
-                  placeholder="Leave blank to use Discord name" 
-                  value={displayName} 
-                  onChange={(e) => setDisplayName(e.target.value)}
-                  maxLength={20}
-                />
-                <p style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginTop: '0.25rem' }}>Your Discord username (@{profileUser.username}) will still be visible</p>
-              </div>
-              <div className="form-group">
-                <label className="form-label">Custom Avatar URL</label>
-                <input 
-                  type="url" 
-                  className="form-input" 
-                  placeholder="https://example.com/avatar.png" 
-                  value={customAvatarUrl} 
-                  onChange={(e) => setCustomAvatarUrl(e.target.value)}
-                />
-                <p style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginTop: '0.25rem' }}>Leave blank to use your Discord avatar</p>
-              </div>
-            </div>
-          )}
-
-          {isOwnProfile && (
+          {isOwnProfile && profileUser.wallet_address && (
             <div className="profile-section">
               <h3 className="profile-section-title">💰 Wallet Address</h3>
               <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '0.75rem' }}>For future payouts. Only visible to you and admins.</p>
-              <input 
-                type="text" 
-                className="form-input" 
-                placeholder="Enter your wallet address..." 
-                value={walletAddress} 
-                onChange={(e) => setWalletAddress(e.target.value)}
-              />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'var(--bg-input)', padding: '0.75rem', borderRadius: '8px', flexWrap: 'wrap' }}>
+                <code style={{ flex: 1, fontFamily: 'monospace', fontSize: '0.85rem', wordBreak: 'break-all', color: 'var(--text-secondary)' }}>{profileUser.wallet_address}</code>
+                <button onClick={() => setShowEditModal(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.25rem' }} title="Edit">✏️</button>
+                <button onClick={handleRemoveWallet} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.25rem' }} title="Remove">🗑️</button>
+              </div>
             </div>
           )}
 
           {canSeePrivate && profileUser.wallet_address && !isOwnProfile && (
             <div className="profile-section">
               <h3 className="profile-section-title">💰 Wallet Address (Admin View)</h3>
-              <p style={{ color: 'var(--text-secondary)', fontFamily: 'monospace', background: 'var(--bg-input)', padding: '0.75rem', borderRadius: '8px' }}>{profileUser.wallet_address}</p>
+              <p style={{ color: 'var(--text-secondary)', fontFamily: 'monospace', background: 'var(--bg-input)', padding: '0.75rem', borderRadius: '8px', wordBreak: 'break-all' }}>{profileUser.wallet_address}</p>
             </div>
           )}
 
@@ -1718,26 +1715,45 @@
                 </label>
                 <p className="toggle-description">Others won't see your betting history (admins can still see)</p>
               </div>
-              <button className="btn btn-primary" onClick={handleSave} disabled={saving} style={{ marginTop: '1rem' }}>
-                {saving ? 'Saving...' : saved ? '✓ Saved!' : 'Save Changes'}
+              <button className="btn btn-primary" onClick={handleSavePrivacy} disabled={saving} style={{ marginTop: '1rem' }}>
+                {saving ? 'Saving...' : saved ? '✓ Saved!' : 'Save Privacy Settings'}
               </button>
             </div>
           )}
 
-          {isOwnProfile && userSubmissions.length > 0 && (
+          {isOwnProfile && (userSubmissions || []).length > 0 && (
             <div className="profile-section">
-              <h3 className="profile-section-title">📝 My Submissions (Pending)</h3>
-              <div className="history-list">
-                {userSubmissions.map(sub => (
-                  <div key={sub.id} className="history-item">
-                    <div className="history-info">
-                      <div className="history-market">{sub.ticker && <span className="ticker-badge" style={{ marginRight: '0.5rem' }}>${sub.ticker}</span>}{sub.title}</div>
-                      <div className="history-meta">{sub.category} • Submitted {formatDate(sub.created_at)}</div>
-                    </div>
-                    <div className="history-result pending">⏳ Pending Review</div>
-                  </div>
+              <h3 className="profile-section-title">📝 My Submissions</h3>
+              <div className="history-filters" style={{ marginBottom: '1rem' }}>
+                {['all', 'pending', 'approved', 'rejected'].map(f => (
+                  <button 
+                    key={f} 
+                    className={`category-pill ${submissionFilter === f ? 'active' : ''}`}
+                    onClick={() => setSubmissionFilter(f)}
+                  >
+                    {f.charAt(0).toUpperCase() + f.slice(1)}
+                  </button>
                 ))}
               </div>
+              {filteredSubmissions.length === 0 ? (
+                <p style={{ color: 'var(--text-muted)', padding: '1rem 0' }}>No submissions found</p>
+              ) : (
+                <div className="history-list">
+                  {filteredSubmissions.map(sub => (
+                    <div key={sub.id} className="history-item">
+                      <div className="history-info">
+                        <div className="history-market">{sub.ticker && <span className="ticker-badge" style={{ marginRight: '0.5rem' }}>${sub.ticker}</span>}{sub.title}</div>
+                        <div className="history-meta">{sub.category} • Submitted {formatDate(sub.created_at)}</div>
+                      </div>
+                      <div className={`history-result ${sub.status || 'pending'}`} style={{ 
+                        color: sub.status === 'approved' ? 'var(--green)' : sub.status === 'rejected' ? 'var(--red)' : 'var(--text-muted)'
+                      }}>
+                        {sub.status === 'approved' ? '✓ Approved' : sub.status === 'rejected' ? '✗ Rejected' : '⏳ Pending'}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
@@ -1774,6 +1790,59 @@
               )}
             </div>
           )}
+
+          {showEditModal && (
+            <div className="modal-overlay" onClick={() => setShowEditModal(false)}>
+              <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '450px' }}>
+                <div className="modal-header">
+                  <h2 className="modal-title">Edit Profile</h2>
+                  <button className="close-btn" onClick={() => setShowEditModal(false)}>×</button>
+                </div>
+                <div className="modal-body">
+                  <div className="form-group">
+                    <label className="form-label">Display Name</label>
+                    <input 
+                      type="text" 
+                      className="form-input" 
+                      placeholder="Leave blank to use Discord name" 
+                      value={editDisplayName} 
+                      onChange={(e) => setEditDisplayName(e.target.value)}
+                      maxLength={20}
+                    />
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginTop: '0.25rem' }}>Your Discord username (@{profileUser.username}) will still be visible</p>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Custom Avatar URL</label>
+                    <input 
+                      type="url" 
+                      className="form-input" 
+                      placeholder="https://example.com/avatar.png" 
+                      value={editAvatarUrl} 
+                      onChange={(e) => setEditAvatarUrl(e.target.value)}
+                    />
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginTop: '0.25rem' }}>Leave blank to use your Discord avatar</p>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Wallet Address</label>
+                    <input 
+                      type="text" 
+                      className="form-input" 
+                      placeholder="Enter your wallet address for future payouts" 
+                      value={editWallet} 
+                      onChange={(e) => setEditWallet(e.target.value)}
+                    />
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginTop: '0.25rem' }}>Only visible to you and admins</p>
+                  </div>
+                </div>
+                <div className="modal-actions">
+                  <button className="btn btn-secondary" onClick={() => setShowEditModal(false)}>Cancel</button>
+                  <button className="btn btn-primary" onClick={handleSaveProfile} disabled={saving}>
+                    {saving ? 'Saving...' : 'Save Changes'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </main>
       );
     }
@@ -1790,6 +1859,8 @@
       const [editCategory, setEditCategory] = useState('');
       
       const activeMarkets = markets.filter(m => m.status === 'active');
+      // Only show pending predictions (not approved/rejected)
+      const actualPending = pendingPredictions.filter(p => !p.status || p.status === 'pending');
       const filteredUsers = allUsers.filter(u => 
         u.username?.toLowerCase().includes(userSearch.toLowerCase()) ||
         u.discord_id?.includes(userSearch)
@@ -1891,8 +1962,8 @@
           <h1 className="page-title">Admin Panel</h1>
           <p className="page-subtitle">Manage predictions, resolve markets, and control user access.</p>
           <div className="admin-section">
-            <h3 className="admin-section-title">📋 Pending Predictions ({pendingPredictions.length})</h3>
-            {pendingPredictions.length === 0 ? <p style={{ color: 'var(--text-muted)' }}>No pending predictions</p> : pendingPredictions.map(pred => (
+            <h3 className="admin-section-title">📋 Pending Predictions ({actualPending.length})</h3>
+            {actualPending.length === 0 ? <p style={{ color: 'var(--text-muted)' }}>No pending predictions</p> : actualPending.map(pred => (
               <div key={pred.id} className="pending-item">
                 <div className="pending-info">
                   <div className="pending-title">{pred.ticker ? `${pred.ticker} - ` : ''}{pred.title}</div>
@@ -2046,6 +2117,7 @@
       const [markets, setMarkets] = useState([]);
       const [leaderboard, setLeaderboard] = useState([]);
       const [pendingPredictions, setPendingPredictions] = useState([]);
+      const [userSubmissions, setUserSubmissions] = useState([]);
       const [allUsers, setAllUsers] = useState([]);
       const [userBets, setUserBets] = useState([]);
       const [allBets, setAllBets] = useState([]);
@@ -2520,12 +2592,16 @@
 
           if (insertError) throw insertError;
 
-          const { error: deleteError } = await supabase
+          // Update status to approved instead of deleting
+          const { error: updateError } = await supabase
             .from('pending_predictions')
-            .delete()
+            .update({ status: 'approved' })
             .eq('id', pred.id);
 
-          if (deleteError) throw deleteError;
+          if (updateError) throw updateError;
+
+          // Update local state
+          setPendingPredictions(pendingPredictions.map(p => p.id === pred.id ? { ...p, status: 'approved' } : p));
 
           // Log activity
           const activityMessage = `New market: ${pred.ticker ? '$' + pred.ticker + ' - ' : ''}${pred.title.substring(0, 35)}`;
@@ -2558,11 +2634,11 @@
         try {
           const { error } = await supabase
             .from('pending_predictions')
-            .delete()
+            .update({ status: 'rejected' })
             .eq('id', id);
 
           if (error) throw error;
-          setPendingPredictions(pendingPredictions.filter(p => p.id !== id));
+          setPendingPredictions(pendingPredictions.map(p => p.id === id ? { ...p, status: 'rejected' } : p));
           addToast('Prediction rejected', 'error');
         } catch (err) {
           console.error('Error rejecting prediction:', err);
@@ -2767,6 +2843,14 @@
           // If viewing own profile, use current user data
           if (userId === user.id) {
             setProfileUser(user);
+            
+            // Fetch own submissions (private to user)
+            const { data: submissionsData } = await supabase
+              .from('pending_predictions')
+              .select('*')
+              .eq('created_by', userId)
+              .order('created_at', { ascending: false });
+            setUserSubmissions(submissionsData || []);
           } else {
             // Fetch the user's profile
             const { data: profileData, error } = await supabase
@@ -2777,6 +2861,7 @@
             
             if (error) throw error;
             setProfileUser(profileData);
+            setUserSubmissions([]); // Don't show other users' submissions
           }
           
           // Fetch user's bets for history
@@ -2899,7 +2984,7 @@
           {activePage === 'history' && <HistoryPage markets={markets} loading={loading} isAdmin={user.is_admin} onClearHistory={handleClearHistory} />}
           {activePage === 'portfolio' && <PortfolioPage userBets={userBets} markets={markets} />}
           {activePage === 'leaderboard' && <LeaderboardPage leaderboard={leaderboard} onViewProfile={handleViewProfile} loading={loading} />}
-          {activePage === 'profile' && <ProfilePage profileUser={profileUser} currentUser={user} userBets={allBets} markets={markets} onUpdateProfile={handleUpdateProfile} onViewProfile={handleViewProfile} pendingPredictions={pendingPredictions} loading={loading} />}
+          {activePage === 'profile' && <ProfilePage profileUser={profileUser} currentUser={user} userBets={allBets} markets={markets} onUpdateProfile={handleUpdateProfile} onViewProfile={handleViewProfile} userSubmissions={userSubmissions} loading={loading} />}
           {activePage === 'admin' && user.is_admin && <AdminPage pendingPredictions={pendingPredictions} onApprove={handleApprovePrediction} onReject={handleRejectPrediction} onEditPending={handleEditPending} markets={markets} onResolve={handleResolveMarket} onEditMarket={handleEditMarket} allUsers={allUsers} onToggleAdmin={handleToggleAdmin} onBanUser={handleBanUser} onUnbanUser={handleUnbanUser} onViewProfile={handleViewProfile} allBets={allBets} loading={loading} />}
           {selectedMarket && <MarketDetail market={selectedMarket} onClose={() => setSelectedMarket(null)} onBet={handleBet} weeklyBetUsed={weeklyBetUsed} userBet={currentUserBet} />}
           {showCreateModal && <CreateModal onClose={() => setShowCreateModal(false)} onSubmit={handleCreatePrediction} user={user} />}
