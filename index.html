@@ -1543,6 +1543,7 @@
       const [saving, setSaving] = useState(false);
       const [saved, setSaved] = useState(false);
       const [showEditModal, setShowEditModal] = useState(false);
+      const [uploading, setUploading] = useState(false);
       
       // Edit modal state
       const [editDisplayName, setEditDisplayName] = useState(profileUser?.display_name || '');
@@ -1552,6 +1553,47 @@
       const isOwnProfile = currentUser.id === profileUser?.id;
       const isAdmin = currentUser.is_admin;
       const canSeePrivate = isOwnProfile || isAdmin;
+
+      // Handle avatar file upload
+      const handleAvatarUpload = async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        
+        // Check file size (max 2MB)
+        if (file.size > 2 * 1024 * 1024) {
+          alert('Image must be less than 2MB');
+          return;
+        }
+        
+        // Check file type
+        if (!file.type.startsWith('image/')) {
+          alert('Please upload an image file');
+          return;
+        }
+        
+        setUploading(true);
+        try {
+          const fileExt = file.name.split('.').pop();
+          const fileName = `${profileUser.id}-${Date.now()}.${fileExt}`;
+          
+          const { data, error } = await supabase.storage
+            .from('avatars')
+            .upload(fileName, file, { upsert: true });
+          
+          if (error) throw error;
+          
+          const { data: urlData } = supabase.storage
+            .from('avatars')
+            .getPublicUrl(fileName);
+          
+          setEditAvatarUrl(urlData.publicUrl);
+        } catch (err) {
+          console.error('Upload error:', err);
+          alert('Failed to upload image. Make sure storage is configured.');
+        } finally {
+          setUploading(false);
+        }
+      };
 
       // Calculate stats
       const totalBets = profileUser?.total_bets || 0;
@@ -1721,38 +1763,44 @@
             </div>
           )}
 
-          {isOwnProfile && (userSubmissions || []).length > 0 && (
+          {isOwnProfile && (
             <div className="profile-section">
               <h3 className="profile-section-title">📝 My Submissions</h3>
-              <div className="history-filters" style={{ marginBottom: '1rem' }}>
-                {['all', 'pending', 'approved', 'rejected'].map(f => (
-                  <button 
-                    key={f} 
-                    className={`category-pill ${submissionFilter === f ? 'active' : ''}`}
-                    onClick={() => setSubmissionFilter(f)}
-                  >
-                    {f.charAt(0).toUpperCase() + f.slice(1)}
-                  </button>
-                ))}
-              </div>
-              {filteredSubmissions.length === 0 ? (
-                <p style={{ color: 'var(--text-muted)', padding: '1rem 0' }}>No submissions found</p>
+              {(userSubmissions || []).length === 0 ? (
+                <p style={{ color: 'var(--text-muted)', padding: '1rem 0' }}>No submissions yet. Suggest a prediction from the Markets page!</p>
               ) : (
-                <div className="history-list">
-                  {filteredSubmissions.map(sub => (
-                    <div key={sub.id} className="history-item">
-                      <div className="history-info">
-                        <div className="history-market">{sub.ticker && <span className="ticker-badge" style={{ marginRight: '0.5rem' }}>${sub.ticker}</span>}{sub.title}</div>
-                        <div className="history-meta">{sub.category} • Submitted {formatDate(sub.created_at)}</div>
-                      </div>
-                      <div className={`history-result ${sub.status || 'pending'}`} style={{ 
-                        color: sub.status === 'approved' ? 'var(--green)' : sub.status === 'rejected' ? 'var(--red)' : 'var(--text-muted)'
-                      }}>
-                        {sub.status === 'approved' ? '✓ Approved' : sub.status === 'rejected' ? '✗ Rejected' : '⏳ Pending'}
-                      </div>
+                <>
+                  <div className="history-filters" style={{ marginBottom: '1rem' }}>
+                    {['all', 'pending', 'approved', 'rejected'].map(f => (
+                      <button 
+                        key={f} 
+                        className={`category-pill ${submissionFilter === f ? 'active' : ''}`}
+                        onClick={() => setSubmissionFilter(f)}
+                      >
+                        {f.charAt(0).toUpperCase() + f.slice(1)}
+                      </button>
+                    ))}
+                  </div>
+                  {filteredSubmissions.length === 0 ? (
+                    <p style={{ color: 'var(--text-muted)', padding: '1rem 0' }}>No submissions match this filter</p>
+                  ) : (
+                    <div className="history-list">
+                      {filteredSubmissions.map(sub => (
+                        <div key={sub.id} className="history-item">
+                          <div className="history-info">
+                            <div className="history-market">{sub.ticker && <span className="ticker-badge" style={{ marginRight: '0.5rem' }}>${sub.ticker}</span>}{sub.title}</div>
+                            <div className="history-meta">{sub.category} • Submitted {formatDate(sub.created_at)}</div>
+                          </div>
+                          <div className={`history-result ${sub.status || 'pending'}`} style={{ 
+                            color: sub.status === 'approved' ? 'var(--green)' : sub.status === 'rejected' ? 'var(--red)' : 'var(--text-muted)'
+                          }}>
+                            {sub.status === 'approved' ? '✓ Approved' : sub.status === 'rejected' ? '✗ Rejected' : '⏳ Pending'}
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
+                  )}
+                </>
               )}
             </div>
           )}
@@ -1812,15 +1860,54 @@
                     <p style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginTop: '0.25rem' }}>Your Discord username (@{profileUser.username}) will still be visible</p>
                   </div>
                   <div className="form-group">
-                    <label className="form-label">Custom Avatar URL</label>
+                    <label className="form-label">Custom Avatar</label>
+                    <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                      <label 
+                        style={{ 
+                          display: 'inline-flex', 
+                          alignItems: 'center', 
+                          gap: '0.5rem', 
+                          padding: '0.5rem 1rem', 
+                          background: 'var(--bg-secondary)', 
+                          border: '1px solid var(--border)', 
+                          borderRadius: '8px', 
+                          cursor: uploading ? 'wait' : 'pointer',
+                          fontSize: '0.85rem'
+                        }}
+                      >
+                        📁 {uploading ? 'Uploading...' : 'Upload Image'}
+                        <input 
+                          type="file" 
+                          accept="image/*" 
+                          onChange={handleAvatarUpload}
+                          disabled={uploading}
+                          style={{ display: 'none' }}
+                        />
+                      </label>
+                      {editAvatarUrl && (
+                        <button 
+                          type="button"
+                          onClick={() => setEditAvatarUrl('')}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}
+                          title="Remove avatar"
+                        >
+                          🗑️
+                        </button>
+                      )}
+                    </div>
+                    {editAvatarUrl && (
+                      <div style={{ marginBottom: '0.5rem' }}>
+                        <img src={editAvatarUrl} alt="Preview" style={{ width: '60px', height: '60px', borderRadius: '50%', objectFit: 'cover' }} />
+                      </div>
+                    )}
                     <input 
                       type="url" 
                       className="form-input" 
-                      placeholder="https://example.com/avatar.png" 
+                      placeholder="Or paste image URL..." 
                       value={editAvatarUrl} 
                       onChange={(e) => setEditAvatarUrl(e.target.value)}
                     />
-                    <p style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginTop: '0.25rem' }}>Leave blank to use your Discord avatar</p>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginTop: '0.25rem' }}>Max 2MB. Leave blank to use Discord avatar.</p>
                   </div>
                   <div className="form-group">
                     <label className="form-label">Wallet Address</label>
