@@ -50,7 +50,7 @@
       z-index: 100;
     }
     .logo { display: flex; align-items: baseline; font-size: 1.5rem; font-weight: 700; }
-    .logo-otc { color: var(--text-primary); }
+    .logo-otc { color: #9213de; }
     .logo-fi { color: var(--accent-cyan); }
     .logo-pulse { font-size: 0.7rem; color: #fb3393; margin-left: 2px; font-weight: 600; }
     .nav { display: flex; gap: 2rem; }
@@ -977,18 +977,22 @@
                   display: 'flex', 
                   alignItems: 'center', 
                   gap: '0.5rem', 
-                  background: 'var(--bg-secondary)', 
-                  border: '1px solid var(--border)', 
-                  borderRadius: '20px', 
-                  padding: '0.35rem 0.75rem 0.35rem 0.35rem',
+                  background: 'linear-gradient(135deg, rgba(146, 19, 222, 0.15), rgba(146, 19, 222, 0.05))', 
+                  border: '2px solid #9213de', 
+                  borderRadius: '25px', 
+                  padding: '0.4rem 1rem 0.4rem 0.4rem',
                   cursor: 'pointer',
-                  transition: 'all 0.2s'
+                  transition: 'all 0.2s',
+                  boxShadow: '0 0 10px rgba(146, 19, 222, 0.3)'
                 }}
               >
-                <div className="user-avatar" style={{ width: '28px', height: '28px', margin: 0 }}>
+                <div className="user-avatar" style={{ width: '32px', height: '32px', margin: 0, border: '2px solid #9213de' }}>
                   {avatarUrl ? <img src={avatarUrl} alt="Avatar" /> : '👤'}
                 </div>
-                <span style={{ color: 'var(--text-primary)', fontWeight: 500, fontSize: '0.9rem' }}>{displayName}</span>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                  <span style={{ color: 'var(--text-primary)', fontWeight: 600, fontSize: '0.9rem' }}>{displayName}</span>
+                  <span style={{ color: '#9213de', fontSize: '0.65rem', fontWeight: 500 }}>View Profile</span>
+                </div>
               </button>
               <button className="user-btn" onClick={() => setShowLogoutConfirm(true)} title="Logout">❌</button>
             </div>
@@ -1143,11 +1147,14 @@
       const minDate = getTodayDate();
       const hasContent = title || ticker || company || endsAt;
 
-      // Auto-format ticker (remove $ and spaces, uppercase)
+      // Auto-format ticker (always $TICKER format)
       const handleTickerChange = (e) => {
         const value = e.target.value.replace(/[$\s]/g, '').toUpperCase();
         setTicker(value);
       };
+      
+      // Display ticker with $ prefix
+      const displayTicker = ticker ? `$${ticker}` : '';
 
       const handleClose = () => {
         if (hasContent) {
@@ -1208,7 +1215,10 @@
                     <>
                       <div className="form-group">
                         <label className="form-label">Ticker Symbol</label>
-                        <input type="text" className="form-input" placeholder="e.g., MVCO" value={ticker} onChange={handleTickerChange} maxLength={5} required={!noTicker} />
+                        <div style={{ display: 'flex', alignItems: 'center' }}>
+                          <span style={{ padding: '0.75rem', background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRight: 'none', borderRadius: '8px 0 0 8px', color: 'var(--text-secondary)' }}>$</span>
+                          <input type="text" className="form-input" placeholder="e.g., MVCO" value={ticker} onChange={handleTickerChange} maxLength={5} required={!noTicker} style={{ borderRadius: '0 8px 8px 0' }} />
+                        </div>
                       </div>
                       <div className="form-group">
                         <label className="form-label">Company Name</label>
@@ -2161,7 +2171,10 @@
                 <div style={{ padding: '1.5rem' }}>
                   <div className="form-group">
                     <label className="form-label">Ticker</label>
-                    <input type="text" className="form-input" value={editTicker} onChange={e => setEditTicker(e.target.value)} placeholder="e.g., MVCO" />
+                    <div style={{ display: 'flex', alignItems: 'center' }}>
+                      <span style={{ padding: '0.75rem', background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRight: 'none', borderRadius: '8px 0 0 8px', color: 'var(--text-secondary)' }}>$</span>
+                      <input type="text" className="form-input" value={editTicker} onChange={e => setEditTicker(e.target.value.replace(/[$\s]/g, '').toUpperCase())} placeholder="e.g., MVCO" style={{ borderRadius: '0 8px 8px 0' }} />
+                    </div>
                   </div>
                   <div className="form-group">
                     <label className="form-label">Company</label>
