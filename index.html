@@ -1027,7 +1027,7 @@
         <div className="market-card" onClick={() => onClick(market)}>
           <div className="market-header">
             <div className="market-ticker-row">
-              {market.ticker && <span className="ticker-badge">{market.ticker}</span>}
+              {market.ticker && <span className="ticker-badge">${market.ticker}</span>}
               {market.company && <span className="market-company">{market.company}</span>}
               <span className="category-badge">{market.category}</span>
             </div>
@@ -1393,7 +1393,7 @@
                 <div key={market.id} className="market-card">
                   <div className="market-header">
                     <div className="market-ticker-row">
-                      {market.ticker && <span className="ticker-badge">{market.ticker}</span>}
+                      {market.ticker && <span className="ticker-badge">${market.ticker}</span>}
                       {market.company && <span className="market-company">{market.company}</span>}
                       <span className="category-badge">{market.category}</span>
                     </div>
@@ -2700,8 +2700,8 @@
 
           if (updateError) throw updateError;
 
-          // Update local state
-          setPendingPredictions(pendingPredictions.map(p => p.id === pred.id ? { ...p, status: 'approved' } : p));
+          // Update local state (use functional update to avoid stale state)
+          setPendingPredictions(prev => prev.map(p => p.id === pred.id ? { ...p, status: 'approved' } : p));
 
           // Log activity
           const activityMessage = `New market: ${pred.ticker ? '$' + pred.ticker + ' - ' : ''}${pred.title.substring(0, 35)}`;
@@ -2738,7 +2738,7 @@
             .eq('id', id);
 
           if (error) throw error;
-          setPendingPredictions(pendingPredictions.map(p => p.id === id ? { ...p, status: 'rejected' } : p));
+          setPendingPredictions(prev => prev.map(p => p.id === id ? { ...p, status: 'rejected' } : p));
           addToast('Prediction rejected', 'error');
         } catch (err) {
           console.error('Error rejecting prediction:', err);
