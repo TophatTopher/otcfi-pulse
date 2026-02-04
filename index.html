@@ -2520,7 +2520,6 @@
             const { data: pendingData } = await supabase
               .from('pending_predictions')
               .select('*')
-              .or('status.is.null,status.eq.pending')
               .order('created_at', { ascending: false });
             setPendingPredictions(pendingData || []);
 
@@ -2574,7 +2573,6 @@
             const { data: pendingData } = await supabase
               .from('pending_predictions')
               .select('*')
-              .or('status.is.null,status.eq.pending')
               .order('created_at', { ascending: false });
             setPendingPredictions(pendingData || []);
 
