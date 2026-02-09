@@ -1042,7 +1042,7 @@
       );
     }
 
-    function MarketDetail({ market, onClose, onBet, weeklyBetUsed, userBet }) {
+    function MarketDetail({ market, onClose, onBet, canBet, weeklyBetsRemaining, userBet }) {
       const [selectedSide, setSelectedSide] = useState('yes');
       const [showConfirm, setShowConfirm] = useState(false);
       const [countdown, setCountdown] = useState(formatCountdown(market.ends_at));
@@ -1092,22 +1092,22 @@
                 </div>
                 <div className="wager-section">
                   <h3 className="wager-title">Place Wager</h3>
-                  <p className="wager-balance">{weeklyBetUsed ? <span className="bet-status-badge bet-used">Weekly bet used</span> : <span className="bet-status-badge bet-available">1 free bet available this week</span>}</p>
+                  <p className="wager-balance">{!canBet ? <span className="bet-status-badge bet-used">All 3 bets used this week</span> : <span className="bet-status-badge bet-available">{weeklyBetsRemaining}/3 bets available</span>}</p>
                   {userBet ? (
                     <div className="already-bet-notice">You already bet <strong>{userBet.side.toUpperCase()}</strong> on this market. Good luck! 🎯</div>
                   ) : (
                     <>
                       <div className="bet-buttons">
-                        <button className={`bet-btn bet-btn-yes ${selectedSide === 'yes' ? 'selected' : ''}`} onClick={() => setSelectedSide('yes')} disabled={weeklyBetUsed}>Bet YES</button>
-                        <button className={`bet-btn bet-btn-no ${selectedSide === 'no' ? 'selected' : ''}`} onClick={() => setSelectedSide('no')} disabled={weeklyBetUsed}>Bet NO</button>
+                        <button className={`bet-btn bet-btn-yes ${selectedSide === 'yes' ? 'selected' : ''}`} onClick={() => setSelectedSide('yes')} disabled={!canBet}>Bet YES</button>
+                        <button className={`bet-btn bet-btn-no ${selectedSide === 'no' ? 'selected' : ''}`} onClick={() => setSelectedSide('no')} disabled={!canBet}>Bet NO</button>
                       </div>
                       <div className="wager-info">
                         <div className="wager-info-row"><span className="wager-info-label">Selected side</span><span className={`wager-info-value ${selectedSide}`}>{selectedSide.toUpperCase()}</span></div>
                       </div>
-                      <button className="place-wager-btn" onClick={() => setShowConfirm(true)} disabled={weeklyBetUsed}>Place Wager</button>
+                      <button className="place-wager-btn" onClick={() => setShowConfirm(true)} disabled={!canBet}>Place Wager</button>
                     </>
                   )}
-                  <p className="demo-notice">🚀 Alpha Phase: Free bets! 1 bet per week.</p>
+                  <p className="demo-notice">🚀 Alpha Phase: Free bets! 3 bets per week.</p>
                 </div>
               </div>
             </div>
@@ -1117,12 +1117,12 @@
             <ConfirmModal
               icon="🎯"
               title="Confirm Your Wager"
-              message="Are you sure you want to place this bet? This will use your weekly wager."
+              message="Are you sure you want to place this bet? This will use one of your weekly wagers."
               details={[
                 { label: "Market", value: market.title.length > 40 ? market.title.substring(0, 40) + '...' : market.title },
                 { label: "Your Pick", value: selectedSide.toUpperCase(), className: selectedSide }
               ]}
-              warning="⚠️ You can only place 1 bet per week"
+              warning="⚠️ You have 3 bets per week"
               confirmText="Place Wager"
               onConfirm={handleConfirmWager}
               onCancel={() => setShowConfirm(false)}
@@ -1278,7 +1278,7 @@
       );
     }
 
-    function MarketsPage({ markets, onMarketClick, onCreateClick, weeklyBetUsed, loading, activityLog, showActivity, onToggleActivity, isAdmin, onClearActivity }) {
+    function MarketsPage({ markets, onMarketClick, onCreateClick, canBet, weeklyBetsUsed, weeklyBetsRemaining, loading, activityLog, showActivity, onToggleActivity, isAdmin, onClearActivity }) {
       const [activeCategory, setActiveCategory] = useState('All');
       const [searchTerm, setSearchTerm] = useState('');
       const [showClearConfirm, setShowClearConfirm] = useState(false);
@@ -1305,7 +1305,7 @@
               <div className="stats-row">
                 <div style={{ display: 'flex', gap: '2rem', alignItems: 'center' }}>
                   <div className="alpha-badge">🚀 Free Alpha</div>
-                  <div className="stat-group"><span className="stat-label">Weekly Bet</span><span className={`bet-status-badge ${weeklyBetUsed ? 'bet-used' : 'bet-available'}`}>{weeklyBetUsed ? '✗ Used' : '✓ Available'}</span></div>
+                  <div className="stat-group"><span className="stat-label">Weekly Bets</span><span className={`bet-status-badge ${canBet ? 'bet-available' : 'bet-used'}`}>{weeklyBetsRemaining}/3</span></div>
                 </div>
                 <div style={{ display: 'flex', gap: '0.75rem' }}>
                   <button className="suggest-btn" onClick={onCreateClick}>+ Suggest Prediction</button>
@@ -2235,7 +2235,9 @@
       const addToast = (msg, type = 'success') => setToasts(prev => [...prev, { id: Date.now(), message: msg, type }]);
       const removeToast = (id) => setToasts(prev => prev.filter(t => t.id !== id));
 
-      const weeklyBetUsed = user?.weekly_bet_used || false;
+      const weeklyBetsUsed = user?.weekly_bets_count || 0;
+      const weeklyBetsRemaining = 3 - weeklyBetsUsed;
+      const canBet = weeklyBetsRemaining > 0;
 
       // Check for existing session on mount
       useEffect(() => {
@@ -2604,8 +2606,8 @@
       };
 
       const handleBet = async (marketId, side) => {
-        if (weeklyBetUsed) {
-          addToast('You already used your weekly bet!', 'error');
+        if (!canBet) {
+          addToast('You\'ve used all 3 weekly bets!', 'error');
           return;
         }
 
@@ -2616,9 +2618,10 @@
 
           if (betError) throw betError;
 
+          const newCount = weeklyBetsUsed + 1;
           const { error: userError } = await supabase
             .from('users')
-            .update({ weekly_bet_used: true })
+            .update({ weekly_bets_count: newCount })
             .eq('id', user.id);
 
           if (userError) throw userError;
@@ -2636,11 +2639,11 @@
             })
             .eq('id', marketId);
 
-          setUser({ ...user, weekly_bet_used: true });
+          setUser({ ...user, weekly_bets_count: newCount });
           setUserBets([...userBets, { user_id: user.id, market_id: marketId, side }]);
           setMarkets(markets.map(m => m.id === marketId ? { ...m, volume: (m.volume || 0) + 1000, yes_percent: newYes, no_percent: newNo } : m));
           setSelectedMarket(null);
-          addToast(`Bet placed on ${side.toUpperCase()}! Good luck! 🎯`);
+          addToast(`Bet placed on ${side.toUpperCase()}! ${3 - newCount} bets remaining 🎯`);
         } catch (err) {
           console.error('Error placing bet:', err);
           addToast('Failed to place bet. Please try again.', 'error');
@@ -3088,15 +3091,15 @@
       const currentUserBet = selectedMarket ? userBets.find(b => b.market_id === selectedMarket.id) : null;
 
       return (
-        <AppContext.Provider value={{ weeklyBetUsed, userBets }}>
+        <AppContext.Provider value={{ canBet, weeklyBetsUsed, weeklyBetsRemaining, userBets }}>
           <Header user={user} activePage={activePage} setActivePage={setActivePage} onLogout={handleLogout} onViewProfile={handleViewProfile} />
-          {activePage === 'markets' && <MarketsPage markets={markets} onMarketClick={setSelectedMarket} onCreateClick={() => setShowCreateModal(true)} weeklyBetUsed={weeklyBetUsed} loading={loading} activityLog={activityLog} showActivity={showActivity} onToggleActivity={() => setShowActivity(!showActivity)} isAdmin={user.is_admin} onClearActivity={handleClearActivity} />}
+          {activePage === 'markets' && <MarketsPage markets={markets} onMarketClick={setSelectedMarket} onCreateClick={() => setShowCreateModal(true)} canBet={canBet} weeklyBetsUsed={weeklyBetsUsed} weeklyBetsRemaining={weeklyBetsRemaining} loading={loading} activityLog={activityLog} showActivity={showActivity} onToggleActivity={() => setShowActivity(!showActivity)} isAdmin={user.is_admin} onClearActivity={handleClearActivity} />}
           {activePage === 'history' && <HistoryPage markets={markets} loading={loading} isAdmin={user.is_admin} onClearHistory={handleClearHistory} />}
           {activePage === 'portfolio' && <PortfolioPage userBets={userBets} markets={markets} />}
           {activePage === 'leaderboard' && <LeaderboardPage leaderboard={leaderboard} onViewProfile={handleViewProfile} loading={loading} />}
           {activePage === 'profile' && <ProfilePage profileUser={profileUser} currentUser={user} userBets={allBets} markets={markets} onUpdateProfile={handleUpdateProfile} onViewProfile={handleViewProfile} userSubmissions={userSubmissions} loading={loading} />}
           {activePage === 'admin' && user.is_admin && <AdminPage pendingPredictions={pendingPredictions} onApprove={handleApprovePrediction} onReject={handleRejectPrediction} onEditPending={handleEditPending} markets={markets} onResolve={handleResolveMarket} onEditMarket={handleEditMarket} allUsers={allUsers} onToggleAdmin={handleToggleAdmin} onBanUser={handleBanUser} onUnbanUser={handleUnbanUser} onViewProfile={handleViewProfile} allBets={allBets} loading={loading} />}
-          {selectedMarket && <MarketDetail market={selectedMarket} onClose={() => setSelectedMarket(null)} onBet={handleBet} weeklyBetUsed={weeklyBetUsed} userBet={currentUserBet} />}
+          {selectedMarket && <MarketDetail market={selectedMarket} onClose={() => setSelectedMarket(null)} onBet={handleBet} canBet={canBet} weeklyBetsRemaining={weeklyBetsRemaining} userBet={currentUserBet} />}
           {showCreateModal && <CreateModal onClose={() => setShowCreateModal(false)} onSubmit={handleCreatePrediction} user={user} />}
           <div className="toast-container">{toasts.map(toast => <Toast key={toast.id} message={toast.message} type={toast.type} onClose={() => removeToast(toast.id)} />)}</div>
         </AppContext.Provider>
