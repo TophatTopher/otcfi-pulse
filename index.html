@@ -2763,12 +2763,56 @@
         try {
           const market = markets.find(m => m.id === id);
           
+          // Update market status
           const { error } = await supabase
             .from('markets')
             .update({ status: 'resolved', winner, resolved_at: new Date().toISOString() })
             .eq('id', id);
 
           if (error) throw error;
+
+          // Get all bets for this market
+          const { data: marketBets } = await supabase
+            .from('bets')
+            .select('*')
+            .eq('market_id', id);
+
+          // Update each bet's result and user stats
+          if (marketBets && marketBets.length > 0) {
+            for (const bet of marketBets) {
+              const won = bet.side === winner;
+              
+              // Update bet result
+              await supabase
+                .from('bets')
+                .update({ result: won ? 'won' : 'lost' })
+                .eq('id', bet.id);
+
+              // Get current user stats
+              const { data: userData } = await supabase
+                .from('users')
+                .select('total_bets, total_wins, current_streak, best_streak')
+                .eq('id', bet.user_id)
+                .single();
+
+              if (userData) {
+                const newTotalBets = (userData.total_bets || 0) + 1;
+                const newTotalWins = won ? (userData.total_wins || 0) + 1 : (userData.total_wins || 0);
+                const newCurrentStreak = won ? (userData.current_streak || 0) + 1 : 0;
+                const newBestStreak = Math.max(newCurrentStreak, userData.best_streak || 0);
+
+                await supabase
+                  .from('users')
+                  .update({
+                    total_bets: newTotalBets,
+                    total_wins: newTotalWins,
+                    current_streak: newCurrentStreak,
+                    best_streak: newBestStreak
+                  })
+                  .eq('id', bet.user_id);
+              }
+            }
+          }
 
           // Log activity
           const activityMessage = `${market.ticker ? '$' + market.ticker : market.title.substring(0, 25)} resolved - ${winner.toUpperCase()} wins!`;
@@ -2777,7 +2821,7 @@
             .insert([{ type: 'resolve', market_id: id, message: activityMessage }]);
           
           const newActivity = { id: Date.now(), type: 'resolve', message: activityMessage, created_at: new Date().toISOString() };
-          setActivityLog([newActivity, ...activityLog]);
+          setActivityLog(prev => [newActivity, ...prev]);
 
           // Discord notification
           sendDiscordNotification(null, {
@@ -2788,7 +2832,7 @@
             timestamp: new Date().toISOString()
           });
 
-          setMarkets(markets.filter(m => m.id !== id));
+          setMarkets(prev => prev.filter(m => m.id !== id));
           addToast(`Market resolved! ${winner.toUpperCase()} wins!`);
         } catch (err) {
           console.error('Error resolving market:', err);
