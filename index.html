@@ -24,6 +24,7 @@
       --accent-green: #22c55e;
       --accent-red: #ef4444;
       --accent-discord: #5865F2;
+      --accent-orange: #f59e0b;
       --text-primary: #ffffff;
       --text-secondary: #9ca3af;
       --text-muted: #6b7280;
@@ -182,6 +183,7 @@
     }
     .countdown-text-urgent { color: #fb3393; }
     .market-title { font-size: 1rem; font-weight: 500; margin-bottom: 0.75rem; line-height: 1.4; }
+    .market-description { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.75rem; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
     .market-footer { display: flex; justify-content: space-between; align-items: center; }
     .market-meta { display: flex; gap: 1rem; font-size: 0.8rem; color: var(--text-muted); }
     .market-odds { display: flex; gap: 0.5rem; }
@@ -687,6 +689,14 @@
     .activity-message { font-size: 0.85rem; margin: 0 0 0.25rem 0; line-height: 1.4; }
     .activity-time { font-size: 0.75rem; color: var(--text-muted); }
     
+    /* Sprint feature styles */
+    .overdue-badge { background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.3); color: var(--accent-orange); padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; }
+    .overdue-item { border-color: rgba(245, 158, 11, 0.3) !important; }
+    .rejection-reason { background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 6px; padding: 0.5rem 0.75rem; margin-top: 0.5rem; font-size: 0.8rem; color: var(--accent-red); }
+    .suggester-badge { background: rgba(22, 217, 241, 0.1); border: 1px solid rgba(22, 217, 241, 0.2); color: var(--accent-cyan); padding: 0.15rem 0.5rem; border-radius: 4px; font-size: 0.7rem; font-weight: 500; }
+    .sort-select { background: var(--bg-input); border: 1px solid var(--border-color); border-radius: 8px; padding: 0.5rem 0.75rem; color: var(--text-primary); font-family: inherit; font-size: 0.85rem; cursor: pointer; }
+    .sort-select:focus { outline: none; border-color: var(--accent-purple); }
+    
     @media (max-width: 1024px) {
       .activity-sidebar { position: fixed; right: 0; top: 70px; height: calc(100vh - 70px); max-height: none; border-radius: 12px 0 0 12px; z-index: 100; }
     }
@@ -803,6 +813,13 @@
       if (days > 0) return { text: `${days}d ${hours}h left`, urgent: days <= 1 };
       if (hours > 0) return { text: `${hours}h ${minutes}m left`, urgent: true };
       return { text: `${minutes}m left`, urgent: true };
+    };
+
+    // Feature #11: Build ends_at ISO string with explicit EST timezone to avoid off-by-one date bug
+    const buildEndsAtISO = (dateStr, timeStr) => {
+      if (!dateStr) return null;
+      const time = timeStr || '23:59';
+      return dateStr + 'T' + time + ':00-05:00';
     };
 
     // Discord Webhooks
@@ -1034,8 +1051,9 @@
             <span className={`countdown-badge ${countdown.urgent ? 'urgent' : ''}`}>⏱ {countdown.text}</span>
           </div>
           <h3 className="market-title">{market.title}</h3>
+          {market.description && <p className="market-description">{market.description}</p>}
           <div className="market-footer">
-            <div className="market-meta"><span>Vol: {market.volume?.toLocaleString() || 0}</span></div>
+            <div className="market-meta"><span>Vol: {market.volume?.toLocaleString() || 0}</span><span>Listed {formatDate(market.created_at)}</span></div>
             <div className="market-odds"><span className="odds-pill odds-yes">Yes {market.yes_percent}%</span><span className="odds-pill odds-no">No {market.no_percent}%</span></div>
           </div>
         </div>
@@ -1079,9 +1097,11 @@
                   <span className="detail-tag">Category: {market.category}</span>
                   <span className={`detail-tag ${countdown.urgent ? 'tag-urgent' : ''}`}>⏱ {countdown.text}</span>
                   <span className="detail-tag">Volume: {market.volume?.toLocaleString() || 0}</span>
+                  <span className="detail-tag">Listed: {formatDate(market.created_at)}</span>
                 </div>
               </div>
               <div className="detail-body">
+                {market.description && <p className="resolution-text" style={{ fontStyle: 'italic', marginBottom: '0.75rem' }}>{market.description}</p>}
                 <p className="resolution-text">{market.resolution}</p>
                 <div className="market-odds-section">
                   <h3 className="market-odds-title">Market Odds</h3>
@@ -1135,9 +1155,11 @@
     function CreateModal({ onClose, onSubmit, user }) {
       const [category, setCategory] = useState('Price');
       const [title, setTitle] = useState('');
+      const [description, setDescription] = useState('');
       const [ticker, setTicker] = useState('');
       const [company, setCompany] = useState('');
       const [endsAt, setEndsAt] = useState('');
+      const [endsAtTime, setEndsAtTime] = useState('16:00');
       const [showConfirm, setShowConfirm] = useState(false);
       const [showCloseConfirm, setShowCloseConfirm] = useState(false);
       const [loading, setLoading] = useState(false);
@@ -1145,7 +1167,7 @@
 
       const isPriceCategory = category === 'Price';
       const minDate = getTodayDate();
-      const hasContent = title || ticker || company || endsAt;
+      const hasContent = title || ticker || company || endsAt || description;
 
       // Auto-format ticker (always $TICKER format)
       const handleTickerChange = (e) => {
@@ -1171,12 +1193,14 @@
 
       const handleConfirmSubmit = async () => {
         setLoading(true);
+        const endsAtISO = buildEndsAtISO(endsAt, endsAtTime);
         const data = {
           title,
+          description: description || null,
           category,
           ticker: noTicker ? null : ticker.toUpperCase() || null,
           company: noTicker ? null : company || null,
-          ends_at: endsAt,
+          ends_at: endsAtISO,
           created_by: user.id
         };
         await onSubmit(data);
@@ -1231,8 +1255,16 @@
                     <textarea className="form-textarea" placeholder={noTicker ? "e.g., Will an OTC company migrate to NASDAQ this month?" : (isPriceCategory ? "e.g., Will MVCO close above $0.01 this week?" : "e.g., New partnership announced this month")} value={title} onChange={(e) => setTitle(e.target.value)} required />
                   </div>
                   <div className="form-group">
-                    <label className="form-label">Resolution Date</label>
-                    <input type="date" className="form-input" value={endsAt} onChange={(e) => setEndsAt(e.target.value)} min={minDate} required />
+                    <label className="form-label">Description (optional)</label>
+                    <textarea className="form-textarea" style={{ minHeight: '70px' }} placeholder="Add context, resolution criteria, or details..." value={description} onChange={(e) => setDescription(e.target.value)} />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Resolution Date & Time (EST)</label>
+                    <div style={{ display: 'flex', gap: '0.75rem' }}>
+                      <input type="date" className="form-input" value={endsAt} onChange={(e) => setEndsAt(e.target.value)} min={minDate} required style={{ flex: 1 }} />
+                      <input type="time" className="form-input" value={endsAtTime} onChange={(e) => setEndsAtTime(e.target.value)} required style={{ flex: 0.6 }} />
+                    </div>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginTop: '0.25rem' }}>All times in Eastern Standard Time (EST)</p>
                   </div>
                 </div>
                 <div className="create-modal-footer">
@@ -1255,7 +1287,8 @@
                   { label: "Company", value: company }
                 ]),
                 { label: "Prediction", value: title.length > 50 ? title.substring(0, 50) + '...' : title },
-                { label: "Resolution Date", value: formattedDate }
+                ...(description ? [{ label: "Description", value: description.length > 50 ? description.substring(0, 50) + '...' : description }] : []),
+                { label: "Resolution", value: formattedDate + ' at ' + endsAtTime + ' EST' }
               ]}
               confirmText={loading ? "Submitting..." : "Submit Prediction"}
               onConfirm={handleConfirmSubmit}
@@ -1281,6 +1314,7 @@
     function MarketsPage({ markets, onMarketClick, onCreateClick, canBet, weeklyBetsUsed, weeklyBetsRemaining, loading, activityLog, showActivity, onToggleActivity, isAdmin, onClearActivity }) {
       const [activeCategory, setActiveCategory] = useState('All');
       const [searchTerm, setSearchTerm] = useState('');
+      const [sortBy, setSortBy] = useState('ending_soon');
       const [showClearConfirm, setShowClearConfirm] = useState(false);
       const activeMarkets = markets.filter(m => m.status === 'active');
       const filtered = activeMarkets.filter(m => {
@@ -1290,6 +1324,15 @@
           m.company?.toLowerCase().includes(searchTerm.toLowerCase()) ||
           m.title?.toLowerCase().includes(searchTerm.toLowerCase());
         return matchesCategory && matchesSearch;
+      });
+
+      // Feature #9: Sort markets by selected criteria
+      const sorted = [...filtered].sort((a, b) => {
+        if (sortBy === 'ending_soon') return new Date(a.ends_at) - new Date(b.ends_at);
+        if (sortBy === 'ending_later') return new Date(b.ends_at) - new Date(a.ends_at);
+        if (sortBy === 'newest') return new Date(b.created_at) - new Date(a.created_at);
+        if (sortBy === 'volume') return (b.volume || 0) - (a.volume || 0);
+        return 0;
       });
       
       if (loading) {
@@ -1321,10 +1364,16 @@
                   onChange={(e) => setSearchTerm(e.target.value)}
                   style={{ flex: 1, minWidth: '200px', maxWidth: '300px' }}
                 />
+                <select className="sort-select" value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
+                  <option value="ending_soon">Ending Soon</option>
+                  <option value="ending_later">Ending Later</option>
+                  <option value="newest">Newest First</option>
+                  <option value="volume">Highest Volume</option>
+                </select>
                 <div className="category-filters" style={{ marginBottom: 0 }}>{categories.map(cat => <button key={cat} className={`category-pill ${activeCategory === cat ? 'active' : ''}`} onClick={() => setActiveCategory(cat)}>{cat}</button>)}</div>
               </div>
-              <div className="market-grid">{filtered.map(market => <MarketCard key={market.id} market={market} onClick={onMarketClick} />)}</div>
-              {filtered.length === 0 && <div className="empty-state"><div className="empty-state-icon">📊</div><div className="empty-state-title">No markets found</div><p>Try a different search or category.</p></div>}
+              <div className="market-grid">{sorted.map(market => <MarketCard key={market.id} market={market} onClick={onMarketClick} />)}</div>
+              {sorted.length === 0 && <div className="empty-state"><div className="empty-state-icon">📊</div><div className="empty-state-title">No markets found</div><p>Try a different search or category.</p></div>}
             </div>
             {showActivity && (
               <div className="activity-sidebar">
@@ -1377,7 +1426,7 @@
     }
 
     function PortfolioPage({ userBets, markets }) {
-      const userMarkets = markets.filter(m => userBets.find(b => b.market_id === m.id));
+      const userMarkets = markets.filter(m => m.status === 'active' && userBets.find(b => b.market_id === m.id));
       return (
         <main className="main">
           <h1 className="page-title">Portfolio</h1>
@@ -1606,9 +1655,14 @@
       };
 
       // Calculate stats
-      const totalBets = profileUser?.total_bets || 0;
+      const ongoingBets = userBets.filter(b => {
+        const market = markets.find(m => m.id === b.market_id);
+        return market && market.status === 'active';
+      }).length;
+      const completedBets = profileUser?.total_bets || 0;
+      const totalBetsIncludingOngoing = completedBets + ongoingBets;
       const totalWins = profileUser?.total_wins || 0;
-      const winRate = totalBets > 0 ? Math.round((totalWins / totalBets) * 100) : 0;
+      const winRate = completedBets > 0 ? Math.round((totalWins / completedBets) * 100) : 0;
 
       // Get user's betting history
       const userMarketBets = userBets
@@ -1661,7 +1715,7 @@
 
       const formatJoinDate = (date) => {
         if (!date) return 'Unknown';
-        return new Date(date).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+        return new Date(date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
       };
 
       const avatarUrl = profileUser?.custom_avatar_url || profileUser?.avatar_url;
@@ -1707,7 +1761,7 @@
                 {profileUser.is_admin && <span className="admin-badge">ADMIN</span>}
               </h1>
               {profileUser.display_name && <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '0.25rem' }}>@{profileUser.username}</p>}
-              <p className="profile-joined">Member since {formatJoinDate(profileUser.created_at)}</p>
+              <p className="profile-joined">📅 Member since {formatJoinDate(profileUser.created_at)}</p>
               {isOwnProfile && (
                 <button 
                   className="btn btn-secondary" 
@@ -1725,7 +1779,8 @@
             <div className="stats-grid">
               <div className="stat-card"><div className="stat-card-value">{totalWins}</div><div className="stat-card-label">Total Wins</div></div>
               <div className="stat-card"><div className="stat-card-value">{winRate}%</div><div className="stat-card-label">Win Rate</div></div>
-              <div className="stat-card"><div className="stat-card-value">{totalBets}</div><div className="stat-card-label">Total Bets</div></div>
+              <div className="stat-card"><div className="stat-card-value">{totalBetsIncludingOngoing}</div><div className="stat-card-label">Total Bets</div></div>
+              <div className="stat-card"><div className="stat-card-value" style={{ color: 'var(--accent-cyan)' }}>{ongoingBets}</div><div className="stat-card-label">Ongoing Bets</div></div>
               <div className="stat-card"><div className="stat-card-value">{profileUser.current_streak || 0}</div><div className="stat-card-label">Current Streak</div></div>
               <div className="stat-card"><div className="stat-card-value">{profileUser.best_streak || 0}</div><div className="stat-card-label">Best Streak</div></div>
             </div>
@@ -1796,16 +1851,21 @@
                   ) : (
                     <div className="history-list">
                       {filteredSubmissions.map(sub => (
-                        <div key={sub.id} className="history-item">
-                          <div className="history-info">
-                            <div className="history-market">{sub.ticker && <span className="ticker-badge" style={{ marginRight: '0.5rem' }}>${sub.ticker}</span>}{sub.title}</div>
-                            <div className="history-meta">{sub.category} • Submitted {formatDate(sub.created_at)}</div>
+                        <div key={sub.id}>
+                          <div className="history-item">
+                            <div className="history-info">
+                              <div className="history-market">{sub.ticker && <span className="ticker-badge" style={{ marginRight: '0.5rem' }}>${sub.ticker}</span>}{sub.title}</div>
+                              <div className="history-meta">{sub.category} • Submitted {formatDate(sub.created_at)}</div>
+                            </div>
+                            <div className={`history-result ${sub.status || 'pending'}`} style={{ 
+                              color: sub.status === 'approved' ? 'var(--green)' : sub.status === 'rejected' ? 'var(--red)' : 'var(--text-muted)'
+                            }}>
+                              {sub.status === 'approved' ? '✓ Approved' : sub.status === 'rejected' ? '✗ Rejected' : '⏳ Pending'}
+                            </div>
                           </div>
-                          <div className={`history-result ${sub.status || 'pending'}`} style={{ 
-                            color: sub.status === 'approved' ? 'var(--green)' : sub.status === 'rejected' ? 'var(--red)' : 'var(--text-muted)'
-                          }}>
-                            {sub.status === 'approved' ? '✓ Approved' : sub.status === 'rejected' ? '✗ Rejected' : '⏳ Pending'}
-                          </div>
+                          {sub.status === 'rejected' && sub.rejection_reason && (
+                            <div className="rejection-reason">💬 Reason: {sub.rejection_reason}</div>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -1950,10 +2010,14 @@
       const [editItem, setEditItem] = useState(null);
       const [editType, setEditType] = useState(null); // 'market' or 'pending'
       const [editTitle, setEditTitle] = useState('');
+      const [editDescription, setEditDescription] = useState('');
       const [editTicker, setEditTicker] = useState('');
       const [editCompany, setEditCompany] = useState('');
       const [editEndsAt, setEditEndsAt] = useState('');
+      const [editEndsAtTime, setEditEndsAtTime] = useState('16:00');
       const [editCategory, setEditCategory] = useState('');
+      const [rejectId, setRejectId] = useState(null);
+      const [rejectionReason, setRejectionReason] = useState('');
       
       const activeMarkets = markets.filter(m => m.status === 'active');
       // Only show pending predictions (not approved/rejected)
@@ -1962,6 +2026,24 @@
         u.username?.toLowerCase().includes(userSearch.toLowerCase()) ||
         u.discord_id?.includes(userSearch)
       );
+
+      // Feature #10: Split active markets into overdue and upcoming
+      const now = new Date();
+      const overdueMarkets = activeMarkets.filter(m => new Date(m.ends_at) <= now).sort((a, b) => new Date(a.ends_at) - new Date(b.ends_at));
+      const upcomingMarkets = activeMarkets.filter(m => new Date(m.ends_at) > now).sort((a, b) => new Date(a.ends_at) - new Date(b.ends_at));
+
+      // Feature #7: Get suggester username for pending predictions
+      const getSuggesterName = (createdBy) => {
+        const user = allUsers.find(u => u.id === createdBy);
+        return user ? user.display_name || user.username : 'Unknown';
+      };
+
+      // Feature #5: Reject with reason handler
+      const handleRejectWithReason = () => {
+        onReject(rejectId, rejectionReason);
+        setRejectId(null);
+        setRejectionReason('');
+      };
 
       // CSV Export functions
       const downloadCSV = (data, filename) => {
@@ -2027,18 +2109,24 @@
         setEditItem(item);
         setEditType(type);
         setEditTitle(item.title);
+        setEditDescription(item.description || '');
         setEditTicker(item.ticker || '');
         setEditCompany(item.company || '');
         setEditEndsAt(item.ends_at?.split('T')[0] || '');
+        // Parse time from existing ends_at if available
+        const existingTime = item.ends_at ? new Date(item.ends_at).toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', timeZone: 'America/New_York' }) : '16:00';
+        setEditEndsAtTime(existingTime);
         setEditCategory(item.category || '');
       };
 
       const handleSaveEdit = () => {
+        const endsAtISO = buildEndsAtISO(editEndsAt, editEndsAtTime);
         const updates = {
           title: editTitle,
+          description: editDescription || null,
           ticker: editTicker,
           company: editCompany,
-          ends_at: editEndsAt,
+          ends_at: endsAtISO,
           category: editCategory
         };
         if (editType === 'market') {
@@ -2064,19 +2152,39 @@
               <div key={pred.id} className="pending-item">
                 <div className="pending-info">
                   <div className="pending-title">{pred.ticker ? `${pred.ticker} - ` : ''}{pred.title}</div>
-                  <div className="pending-meta">{pred.category} • Ends {formatDate(pred.ends_at)}</div>
+                  <div className="pending-meta">
+                    {pred.category} • Ends {formatDate(pred.ends_at)}
+                    {pred.created_by && <> • <span className="suggester-badge">👤 {getSuggesterName(pred.created_by)}</span></>}
+                  </div>
+                  {pred.description && <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.25rem', fontStyle: 'italic' }}>{pred.description}</div>}
                 </div>
                 <div className="pending-actions">
                   <button className="btn-sm" style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)' }} onClick={() => openEditModal(pred, 'pending')}>✏️ Edit</button>
                   <button className="btn-sm btn-approve" onClick={() => onApprove(pred)}>Approve</button>
-                  <button className="btn-sm btn-reject" onClick={() => onReject(pred.id)}>Reject</button>
+                  <button className="btn-sm btn-reject" onClick={() => setRejectId(pred.id)}>Reject</button>
                 </div>
               </div>
             ))}
           </div>
           <div className="admin-section">
-            <h3 className="admin-section-title">✅ Resolve Active Markets</h3>
-            {activeMarkets.length === 0 ? <p style={{ color: 'var(--text-muted)' }}>No active markets</p> : activeMarkets.map(market => (
+            <h3 className="admin-section-title">⚠️ Awaiting Resolution ({overdueMarkets.length})</h3>
+            {overdueMarkets.length === 0 ? <p style={{ color: 'var(--text-muted)' }}>No overdue markets</p> : overdueMarkets.map(market => (
+              <div key={market.id} className="pending-item overdue-item">
+                <div className="pending-info">
+                  <div className="pending-title">{market.ticker ? `${market.ticker} - ` : ''}{market.title} <span className="overdue-badge">OVERDUE</span></div>
+                  <div className="pending-meta">{market.category} • Ended {formatDate(market.ends_at)} • Vol: {market.volume?.toLocaleString() || 0}</div>
+                </div>
+                <div className="pending-actions">
+                  <button className="btn-sm" style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)' }} onClick={() => openEditModal(market, 'market')}>✏️ Edit</button>
+                  <button className="btn-sm btn-approve" onClick={() => onResolve(market.id, 'yes')}>YES Won</button>
+                  <button className="btn-sm btn-reject" onClick={() => onResolve(market.id, 'no')}>NO Won</button>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="admin-section">
+            <h3 className="admin-section-title">✅ Resolve Active Markets ({upcomingMarkets.length})</h3>
+            {upcomingMarkets.length === 0 ? <p style={{ color: 'var(--text-muted)' }}>No active markets</p> : upcomingMarkets.map(market => (
               <div key={market.id} className="pending-item">
                 <div className="pending-info">
                   <div className="pending-title">{market.ticker ? `${market.ticker} - ` : ''}{market.title}</div>
@@ -2146,6 +2254,24 @@
             </div>
           </div>
           
+          {rejectId && (
+            <div className="modal-overlay" onClick={() => { setRejectId(null); setRejectionReason(''); }}>
+              <div className="confirm-modal" onClick={e => e.stopPropagation()}>
+                <div className="confirm-icon">✗</div>
+                <h2 className="confirm-title">Reject Prediction?</h2>
+                <p className="confirm-message">Optionally provide a reason for the rejection.</p>
+                <div className="form-group" style={{ textAlign: 'left' }}>
+                  <label className="form-label">Rejection Reason (optional)</label>
+                  <textarea className="form-textarea" style={{ minHeight: '60px' }} value={rejectionReason} onChange={e => setRejectionReason(e.target.value)} placeholder="e.g., Vague resolution criteria, duplicate market..." />
+                </div>
+                <div className="confirm-buttons">
+                  <button className="btn btn-secondary" onClick={() => { setRejectId(null); setRejectionReason(''); }}>Cancel</button>
+                  <button className="btn btn-primary" style={{ width: 'auto', background: 'var(--accent-red)' }} onClick={handleRejectWithReason}>Reject</button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {banConfirm && (
             <ConfirmModal
               icon="🚫"
@@ -2184,6 +2310,10 @@
                     <label className="form-label">Title</label>
                     <textarea className="form-textarea" value={editTitle} onChange={e => setEditTitle(e.target.value)} rows={3} />
                   </div>
+                  <div className="form-group">
+                    <label className="form-label">Description (optional)</label>
+                    <textarea className="form-textarea" style={{ minHeight: '60px' }} value={editDescription} onChange={e => setEditDescription(e.target.value)} placeholder="Add context or details..." />
+                  </div>
                   {editType === 'pending' && (
                     <div className="form-group">
                       <label className="form-label">Category</label>
@@ -2195,8 +2325,12 @@
                     </div>
                   )}
                   <div className="form-group">
-                    <label className="form-label">End Date</label>
-                    <input type="date" className="form-input" value={editEndsAt} onChange={e => setEditEndsAt(e.target.value)} />
+                    <label className="form-label">End Date & Time (EST)</label>
+                    <div style={{ display: 'flex', gap: '0.75rem' }}>
+                      <input type="date" className="form-input" value={editEndsAt} onChange={e => setEditEndsAt(e.target.value)} style={{ flex: 1 }} />
+                      <input type="time" className="form-input" value={editEndsAtTime} onChange={e => setEditEndsAtTime(e.target.value)} style={{ flex: 0.6 }} />
+                    </div>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginTop: '0.25rem' }}>All times in Eastern Standard Time (EST)</p>
                   </div>
                   <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.5rem' }}>
                     <button className="btn btn-secondary" onClick={() => { setEditItem(null); setEditType(null); }} style={{ flex: 1 }}>Cancel</button>
@@ -2691,6 +2825,7 @@
             .from('markets')
             .insert([{
               title: pred.title,
+              description: pred.description || null,
               category: pred.category,
               ticker: pred.ticker,
               company: pred.company,
@@ -2743,11 +2878,13 @@
         }
       };
 
-      const handleRejectPrediction = async (id) => {
+      const handleRejectPrediction = async (id, reason) => {
         try {
+          const updateData = { status: 'rejected' };
+          if (reason) updateData.rejection_reason = reason;
           const { error } = await supabase
             .from('pending_predictions')
-            .update({ status: 'rejected' })
+            .update(updateData)
             .eq('id', id);
 
           if (error) throw error;
@@ -2928,6 +3065,7 @@
             .from('markets')
             .update({
               title: updates.title,
+              description: updates.description,
               ticker: updates.ticker,
               company: updates.company,
               ends_at: updates.ends_at
@@ -2950,6 +3088,7 @@
             .from('pending_predictions')
             .update({
               title: updates.title,
+              description: updates.description,
               ticker: updates.ticker,
               company: updates.company,
               category: updates.category,
