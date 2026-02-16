@@ -2328,7 +2328,7 @@
       const [editCategory, setEditCategory] = useState('');
       const [rejectId, setRejectId] = useState(null);
       const [rejectionReason, setRejectionReason] = useState('');
-      
+      const [viewBetsMarket, setViewBetsMarket] = useState(null);      
       const activeMarkets = markets.filter(m => m.status === 'active');
       // Only show pending predictions (not approved/rejected)
       const actualPending = pendingPredictions.filter(p => !p.status || p.status === 'pending');
@@ -2486,6 +2486,7 @@
                 </div>
                 <div className="pending-actions">
                   <button className="btn-sm" style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)' }} onClick={() => openEditModal(market, 'market')}>✏️ Edit</button>
+                  <button className="btn-sm" style={{ background: 'var(--bg-secondary)', color: 'var(--accent-cyan)' }} onClick={() => setViewBetsMarket(market)}>👥 Bets</button>
                   <button className="btn-sm btn-approve" onClick={() => onResolve(market.id, 'yes')}>YES Won</button>
                   <button className="btn-sm btn-reject" onClick={() => onResolve(market.id, 'no')}>NO Won</button>
                 </div>
@@ -2502,6 +2503,7 @@
                 </div>
                 <div className="pending-actions">
                   <button className="btn-sm" style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)' }} onClick={() => openEditModal(market, 'market')}>✏️ Edit</button>
+                  <button className="btn-sm" style={{ background: 'var(--bg-secondary)', color: 'var(--accent-cyan)' }} onClick={() => setViewBetsMarket(market)}>👥 Bets</button>
                   <button className="btn-sm btn-approve" onClick={() => onResolve(market.id, 'yes')}>YES Won</button>
                   <button className="btn-sm btn-reject" onClick={() => onResolve(market.id, 'no')}>NO Won</button>
                 </div>
@@ -2564,6 +2566,59 @@
             </div>
           </div>
           
+          {viewBetsMarket && (() => {
+            const marketBets = bets.filter(b => b.market_id === viewBetsMarket.id);
+            const yesBets = marketBets.filter(b => b.side === 'yes');
+            const noBets = marketBets.filter(b => b.side === 'no');
+            const getBetterName = (userId) => {
+              const u = allUsers.find(x => x.id === userId);
+              return u ? (u.display_name || u.username) : 'Unknown';
+            };
+            return (
+              <div className="modal-overlay" onClick={() => setViewBetsMarket(null)}>
+                <div className="modal-content" style={{ maxWidth: '500px' }} onClick={e => e.stopPropagation()}>
+                  <div className="modal-header">
+                    <h2 style={{ margin: 0 }}>👥 Bets on Market</h2>
+                    <button className="close-btn" onClick={() => setViewBetsMarket(null)}>×</button>
+                  </div>
+                  <div style={{ padding: '1.5rem' }}>
+                    <p style={{ color: 'var(--text-secondary)', marginBottom: '1rem', fontSize: '0.9rem' }}>{viewBetsMarket.title}</p>
+                    <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem', fontSize: '0.8rem' }}>Total: {marketBets.length} bets • {yesBets.length} YES • {noBets.length} NO</p>
+                    
+                    {marketBets.length === 0 ? (
+                      <p style={{ color: 'var(--text-muted)', textAlign: 'center' }}>No bets placed yet</p>
+                    ) : (
+                      <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
+                        {yesBets.length > 0 && (
+                          <>
+                            <h4 style={{ color: 'var(--green)', marginBottom: '0.5rem', fontSize: '0.85rem' }}>✅ YES ({yesBets.length})</h4>
+                            {yesBets.map(b => (
+                              <div key={b.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.4rem 0.75rem', marginBottom: '0.25rem', background: 'rgba(16, 185, 129, 0.08)', borderRadius: '6px', fontSize: '0.85rem' }}>
+                                <span style={{ color: 'var(--text-primary)' }}>{getBetterName(b.user_id)}</span>
+                                <span style={{ color: 'var(--text-muted)' }}>{formatDate(b.created_at)}</span>
+                              </div>
+                            ))}
+                          </>
+                        )}
+                        {noBets.length > 0 && (
+                          <>
+                            <h4 style={{ color: 'var(--accent-red)', marginBottom: '0.5rem', marginTop: yesBets.length > 0 ? '1rem' : '0', fontSize: '0.85rem' }}>❌ NO ({noBets.length})</h4>
+                            {noBets.map(b => (
+                              <div key={b.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.4rem 0.75rem', marginBottom: '0.25rem', background: 'rgba(239, 68, 68, 0.08)', borderRadius: '6px', fontSize: '0.85rem' }}>
+                                <span style={{ color: 'var(--text-primary)' }}>{getBetterName(b.user_id)}</span>
+                                <span style={{ color: 'var(--text-muted)' }}>{formatDate(b.created_at)}</span>
+                              </div>
+                            ))}
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+
           {rejectId && (
             <div className="modal-overlay" onClick={() => { setRejectId(null); setRejectionReason(''); }}>
               <div className="confirm-modal" onClick={e => e.stopPropagation()}>
