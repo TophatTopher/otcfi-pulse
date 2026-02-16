@@ -931,11 +931,20 @@
     function Login({ onLoginSuccess }) {
       const [loading, setLoading] = useState(false);
       const [error, setError] = useState('');
+      const [mode, setMode] = useState('login'); // 'login', 'signup', 'verify', 'forgot'
+      const [email, setEmail] = useState('');
+      const [password, setPassword] = useState('');
+      const [tosAccepted, setTosAccepted] = useState(false);
+      const [showTos, setShowTos] = useState(false);
+      const [resetSent, setResetSent] = useState(false);
 
       const handleDiscordLogin = async () => {
+        if (mode === 'signup' && !tosAccepted) {
+          setError('You must accept the Terms of Service to continue.');
+          return;
+        }
         setLoading(true);
         setError('');
-
         try {
           const { error } = await supabase.auth.signInWithOAuth({
             provider: 'discord',
@@ -944,7 +953,6 @@
               scopes: 'identify email guilds'
             }
           });
-
           if (error) throw error;
         } catch (err) {
           console.error('Discord login error:', err);
@@ -953,17 +961,293 @@
         }
       };
 
+      const handleEmailSignup = async (e) => {
+        e.preventDefault();
+        if (!tosAccepted) {
+          setError('You must accept the Terms of Service to continue.');
+          return;
+        }
+        if (password.length < 6) {
+          setError('Password must be at least 6 characters.');
+          return;
+        }
+        setLoading(true);
+        setError('');
+        try {
+          const { error } = await supabase.auth.signUp({
+            email,
+            password,
+            options: { emailRedirectTo: window.location.origin }
+          });
+          if (error) throw error;
+          setMode('verify');
+        } catch (err) {
+          console.error('Signup error:', err);
+          setError(err.message || 'Failed to sign up. Please try again.');
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      const handleEmailLogin = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        setError('');
+        try {
+          const { error } = await supabase.auth.signInWithPassword({ email, password });
+          if (error) throw error;
+        } catch (err) {
+          console.error('Login error:', err);
+          setError(err.message || 'Invalid email or password.');
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      const handleForgotPassword = async (e) => {
+        e.preventDefault();
+        if (!email) {
+          setError('Please enter your email address.');
+          return;
+        }
+        setLoading(true);
+        setError('');
+        try {
+          const { error } = await supabase.auth.resetPasswordForEmail(email, {
+            redirectTo: window.location.origin
+          });
+          if (error) throw error;
+          setResetSent(true);
+        } catch (err) {
+          setError(err.message || 'Failed to send reset email.');
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      if (mode === 'verify') {
+        return (
+          <div className="login-container">
+            <div className="login-card">
+              <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📧</div>
+              <h2 style={{ marginBottom: '0.5rem' }}>Check Your Email</h2>
+              <p className="login-subtitle">We sent a verification link to <strong style={{ color: 'var(--accent-cyan)' }}>{email}</strong>. Click the link to activate your account.</p>
+              <button className="btn btn-secondary" onClick={() => setMode('login')} style={{ width: '100%' }}>Back to Login</button>
+            </div>
+          </div>
+        );
+      }
+
+      if (mode === 'forgot') {
+        return (
+          <div className="login-container">
+            <div className="login-card">
+              <div className="logo" style={{ justifyContent: 'center', marginBottom: '1.5rem', fontSize: '2rem' }}>
+                <span className="logo-otc">OTC</span><span className="logo-fi">fi</span><span className="logo-pulse">Pulse</span>
+              </div>
+              {resetSent ? (
+                <>
+                  <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>✅</div>
+                  <h2 style={{ marginBottom: '0.5rem' }}>Reset Link Sent</h2>
+                  <p className="login-subtitle">Check your email for a password reset link.</p>
+                  <button className="btn btn-secondary" onClick={() => { setMode('login'); setResetSent(false); }} style={{ width: '100%' }}>Back to Login</button>
+                </>
+              ) : (
+                <>
+                  <h2 style={{ marginBottom: '0.5rem' }}>Reset Password</h2>
+                  <p className="login-subtitle">Enter your email and we'll send you a reset link.</p>
+                  {error && <p style={{ color: 'var(--accent-red)', marginBottom: '1rem', fontSize: '0.9rem' }}>{error}</p>}
+                  <form onSubmit={handleForgotPassword}>
+                    <div className="form-group">
+                      <input type="email" className="form-input" placeholder="Email address" value={email} onChange={e => setEmail(e.target.value)} required />
+                    </div>
+                    <button className="login-btn" type="submit" disabled={loading}>{loading ? 'Sending...' : 'Send Reset Link'}</button>
+                  </form>
+                  <p style={{ marginTop: '1rem', fontSize: '0.85rem' }}><button style={{ background: 'none', border: 'none', color: 'var(--accent-cyan)', cursor: 'pointer', fontFamily: 'inherit' }} onClick={() => { setMode('login'); setError(''); }}>Back to Login</button></p>
+                </>
+              )}
+            </div>
+          </div>
+        );
+      }
+
       return (
         <div className="login-container">
           <div className="login-card">
             <div className="logo" style={{ justifyContent: 'center', marginBottom: '1.5rem', fontSize: '2rem' }}>
               <span className="logo-otc">OTC</span><span className="logo-fi">fi</span><span className="logo-pulse">Pulse</span>
             </div>
-            <p className="login-subtitle">Predict OTC stock outcomes. Free bets during alpha! Connect with Discord to get started.</p>
+            <p className="login-subtitle">
+              {mode === 'login' ? 'Predict OTC stock outcomes. Free bets during alpha!' : 'Create your account to start predicting.'}
+            </p>
             {error && <p style={{ color: 'var(--accent-red)', marginBottom: '1rem', fontSize: '0.9rem' }}>{error}</p>}
+            
+            <form onSubmit={mode === 'login' ? handleEmailLogin : handleEmailSignup}>
+              <div className="form-group">
+                <input type="email" className="form-input" placeholder="Email address" value={email} onChange={e => setEmail(e.target.value)} required />
+              </div>
+              <div className="form-group">
+                <input type="password" className="form-input" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} required minLength={6} />
+              </div>
+              
+              {mode === 'signup' && (
+                <div className="form-group" style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem' }}>
+                  <input type="checkbox" checked={tosAccepted} onChange={e => setTosAccepted(e.target.checked)} style={{ marginTop: '0.2rem', width: 'auto', accentColor: 'var(--accent-purple)' }} />
+                  <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', cursor: 'pointer' }} onClick={() => setTosAccepted(!tosAccepted)}>
+                    I agree to the <span style={{ color: 'var(--accent-cyan)', cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); setShowTos(true); }}>Terms of Service</span> and consent to receive emails from OTCfi Pulse and Metavesco Inc.
+                  </label>
+                </div>
+              )}
+              
+              <button className="login-btn" type="submit" disabled={loading}>
+                {loading ? 'Loading...' : mode === 'login' ? 'Log In' : 'Create Account'}
+              </button>
+            </form>
+
+            {mode === 'login' && (
+              <p style={{ marginTop: '0.75rem', fontSize: '0.8rem' }}>
+                <button style={{ background: 'none', border: 'none', color: 'var(--accent-cyan)', cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.8rem' }} onClick={() => { setMode('forgot'); setError(''); }}>Forgot password?</button>
+              </p>
+            )}
+
+            <div style={{ margin: '1.25rem 0', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <div style={{ flex: 1, height: '1px', background: 'var(--border-color)' }}></div>
+              <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>or</span>
+              <div style={{ flex: 1, height: '1px', background: 'var(--border-color)' }}></div>
+            </div>
+
             <button className="discord-btn" onClick={handleDiscordLogin} disabled={loading}>
               <DiscordIcon />
-              {loading ? 'Connecting...' : 'Continue with Discord'}
+              Continue with Discord
+            </button>
+            
+            <p style={{ marginTop: '1.25rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+              {mode === 'login' ? (
+                <>Don't have an account? <button style={{ background: 'none', border: 'none', color: 'var(--accent-cyan)', cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.85rem' }} onClick={() => { setMode('signup'); setError(''); }}>Sign Up</button></>
+              ) : (
+                <>Already have an account? <button style={{ background: 'none', border: 'none', color: 'var(--accent-cyan)', cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.85rem' }} onClick={() => { setMode('login'); setError(''); }}>Log In</button></>
+              )}
+            </p>
+          </div>
+
+          {showTos && (
+            <div className="modal-overlay" onClick={() => setShowTos(false)}>
+              <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '600px', padding: '2rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                  <h2 style={{ margin: 0 }}>Terms of Service</h2>
+                  <button className="close-btn" onClick={() => setShowTos(false)}>×</button>
+                </div>
+                <div style={{ maxHeight: '60vh', overflowY: 'auto', color: 'var(--text-secondary)', fontSize: '0.85rem', lineHeight: 1.7 }}>
+                  <h3 style={{ color: 'var(--text-primary)', marginBottom: '0.5rem' }}>1. Acceptance of Terms</h3>
+                  <p style={{ marginBottom: '1rem' }}>By creating an account or using OTCfi Pulse, you agree to be bound by these Terms of Service. If you do not agree, do not use the Platform.</p>
+                  <h3 style={{ color: 'var(--text-primary)', marginBottom: '0.5rem' }}>2. Eligibility</h3>
+                  <p style={{ marginBottom: '1rem' }}>You must be at least 18 years old to use OTCfi Pulse.</p>
+                  <h3 style={{ color: 'var(--text-primary)', marginBottom: '0.5rem' }}>3. What OTCfi Pulse Is</h3>
+                  <p style={{ marginBottom: '1rem' }}>OTCfi Pulse is a prediction market platform owned and operated by Metavesco Inc. Users make predictions about OTC stock outcomes using a points-based system. No real money is wagered, won, or lost. All bets are for entertainment and educational purposes only.</p>
+                  <h3 style={{ color: 'var(--text-primary)', marginBottom: '0.5rem' }}>4. Alpha Product</h3>
+                  <p style={{ marginBottom: '1rem' }}>OTCfi Pulse is in alpha. Features may change or break without notice. Points, stats, or account data may be reset during development. The Platform is provided as-is.</p>
+                  <h3 style={{ color: 'var(--text-primary)', marginBottom: '0.5rem' }}>5. Email Communications</h3>
+                  <p style={{ marginBottom: '1rem' }}>By creating an account, you consent to receive emails from OTCfi Pulse and Metavesco Inc., including: account verification and security emails, platform updates and feature announcements, market results and activity notifications, and updates on Metavesco products and services. You may opt out of non-essential emails at any time.</p>
+                  <h3 style={{ color: 'var(--text-primary)', marginBottom: '0.5rem' }}>6. Not Financial Advice</h3>
+                  <p style={{ marginBottom: '1rem' }}>Nothing on OTCfi Pulse constitutes financial advice or investment recommendations. Predictions are user-generated opinions for entertainment. Always do your own research.</p>
+                  <h3 style={{ color: 'var(--text-primary)', marginBottom: '0.5rem' }}>7. Limitation of Liability</h3>
+                  <p style={{ marginBottom: '1rem' }}>OTCfi Pulse is not liable for any financial losses, data loss, downtime, or actions of other users. The Platform is provided without warranties of any kind.</p>
+                </div>
+                <button className="btn btn-primary" onClick={() => setShowTos(false)} style={{ marginTop: '1rem' }}>Close</button>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    function OnboardingScreen({ user, onComplete }) {
+      const [displayName, setDisplayName] = useState(user.display_name || user.username || '');
+      const [avatarUrl, setAvatarUrl] = useState(user.custom_avatar_url || user.avatar_url || '');
+      const [wallet, setWallet] = useState('');
+      const [uploading, setUploading] = useState(false);
+      const [saving, setSaving] = useState(false);
+      const [error, setError] = useState('');
+
+      const handleAvatarUpload = async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        if (file.size > 2 * 1024 * 1024) { setError('Image must be less than 2MB'); return; }
+        if (!file.type.startsWith('image/')) { setError('Please upload an image file'); return; }
+        setUploading(true);
+        try {
+          const fileExt = file.name.split('.').pop();
+          const fileName = `${user.id}-${Date.now()}.${fileExt}`;
+          const { data, error } = await supabase.storage.from('avatars').upload(fileName, file, { upsert: true });
+          if (error) throw error;
+          const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(fileName);
+          setAvatarUrl(urlData.publicUrl);
+        } catch (err) {
+          console.error('Upload error:', err);
+          setError('Failed to upload image.');
+        } finally {
+          setUploading(false);
+        }
+      };
+
+      const handleComplete = async () => {
+        if (!displayName.trim()) { setError('Please enter a display name.'); return; }
+        setSaving(true);
+        setError('');
+        try {
+          const { error } = await supabase.from('users').update({
+            display_name: displayName.trim(),
+            custom_avatar_url: avatarUrl || null,
+            wallet_address: wallet || null,
+            onboarding_complete: true
+          }).eq('id', user.id);
+          if (error) throw error;
+          onComplete({ ...user, display_name: displayName.trim(), custom_avatar_url: avatarUrl || null, wallet_address: wallet || null, onboarding_complete: true });
+        } catch (err) {
+          console.error('Onboarding error:', err);
+          setError('Failed to save profile. Please try again.');
+        } finally {
+          setSaving(false);
+        }
+      };
+
+      return (
+        <div className="login-container">
+          <div className="login-card" style={{ maxWidth: '450px', textAlign: 'left' }}>
+            <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+              <div className="logo" style={{ justifyContent: 'center', marginBottom: '1rem', fontSize: '2rem' }}>
+                <span className="logo-otc">OTC</span><span className="logo-fi">fi</span><span className="logo-pulse">Pulse</span>
+              </div>
+              <h2 style={{ marginBottom: '0.25rem' }}>Welcome! Complete Your Profile</h2>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Set up your profile to get started.</p>
+            </div>
+            {error && <p style={{ color: 'var(--accent-red)', marginBottom: '1rem', fontSize: '0.9rem', textAlign: 'center' }}>{error}</p>}
+            <div className="form-group">
+              <label className="form-label">Display Name *</label>
+              <input type="text" className="form-input" placeholder="How you want to be known" value={displayName} onChange={e => setDisplayName(e.target.value)} maxLength={20} required />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Avatar</label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '0.5rem' }}>
+                <div style={{ width: '60px', height: '60px', borderRadius: '12px', background: 'linear-gradient(135deg, var(--accent-purple), var(--accent-cyan))', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0 }}>
+                  {avatarUrl ? <img src={avatarUrl} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: '1.5rem', color: 'white', fontWeight: 700 }}>{displayName?.charAt(0)?.toUpperCase() || '?'}</span>}
+                </div>
+                <div>
+                  <label style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', padding: '0.4rem 0.75rem', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '6px', cursor: uploading ? 'wait' : 'pointer', fontSize: '0.8rem' }}>
+                    📁 {uploading ? 'Uploading...' : 'Upload Image'}
+                    <input type="file" accept="image/*" onChange={handleAvatarUpload} disabled={uploading} style={{ display: 'none' }} />
+                  </label>
+                  <p style={{ color: 'var(--text-muted)', fontSize: '0.7rem', marginTop: '0.25rem' }}>Optional. Max 2MB.</p>
+                </div>
+              </div>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Wallet Address</label>
+              <input type="text" className="form-input" placeholder="For future payouts (add later)" value={wallet} onChange={e => setWallet(e.target.value)} />
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.7rem', marginTop: '0.25rem' }}>Optional. Only visible to you and admins.</p>
+            </div>
+            <button className="login-btn" onClick={handleComplete} disabled={saving} style={{ marginTop: '0.5rem' }}>
+              {saving ? 'Saving...' : 'Enter OTCfi Pulse 🚀'}
             </button>
           </div>
         </div>
@@ -1112,7 +1396,7 @@
                 </div>
                 <div className="wager-section">
                   <h3 className="wager-title">Place Wager</h3>
-                  <p className="wager-balance">{!canBet ? <span className="bet-status-badge bet-used">All 3 bets used this week</span> : <span className="bet-status-badge bet-available">{weeklyBetsRemaining}/3 bets available</span>}</p>
+                  <p className="wager-balance">{!canBet ? <span className="bet-status-badge bet-used">Both daily bets used</span> : <span className="bet-status-badge bet-available">{weeklyBetsRemaining}/2 bets available</span>}</p>
                   {userBet ? (
                     <div className="already-bet-notice">You already bet <strong>{userBet.side.toUpperCase()}</strong> on this market. Good luck! 🎯</div>
                   ) : (
@@ -1127,7 +1411,7 @@
                       <button className="place-wager-btn" onClick={() => setShowConfirm(true)} disabled={!canBet}>Place Wager</button>
                     </>
                   )}
-                  <p className="demo-notice">🚀 Alpha Phase: Free bets! 3 bets per week.</p>
+                  <p className="demo-notice">🚀 Alpha Phase: Free bets! 2 bets per day.</p>
                 </div>
               </div>
             </div>
@@ -1142,7 +1426,7 @@
                 { label: "Market", value: market.title.length > 40 ? market.title.substring(0, 40) + '...' : market.title },
                 { label: "Your Pick", value: selectedSide.toUpperCase(), className: selectedSide }
               ]}
-              warning="⚠️ You have 3 bets per week"
+              warning="⚠️ You have 2 bets per day"
               confirmText="Place Wager"
               onConfirm={handleConfirmWager}
               onCancel={() => setShowConfirm(false)}
@@ -1348,7 +1632,7 @@
               <div className="stats-row">
                 <div style={{ display: 'flex', gap: '2rem', alignItems: 'center' }}>
                   <div className="alpha-badge">🚀 Free Alpha</div>
-                  <div className="stat-group"><span className="stat-label">Weekly Bets</span><span className={`bet-status-badge ${canBet ? 'bet-available' : 'bet-used'}`}>{weeklyBetsRemaining}/3</span></div>
+                  <div className="stat-group"><span className="stat-label">Daily Bets</span><span className={`bet-status-badge ${canBet ? 'bet-available' : 'bet-used'}`}>{weeklyBetsRemaining}/2</span></div>
                 </div>
                 <div style={{ display: 'flex', gap: '0.75rem' }}>
                   <button className="suggest-btn" onClick={onCreateClick}>+ Suggest Prediction</button>
@@ -2220,7 +2504,7 @@
                       {u.is_admin && <span style={{ color: 'var(--accent-purple)', fontSize: '0.75rem' }}> • ADMIN</span>}
                       {u.banned && <span style={{ color: 'var(--accent-red)', fontSize: '0.75rem' }}> • BANNED</span>}
                     </div>
-                    <div className="pending-meta">@{u.username} • {u.total_wins || 0} wins</div>
+                    <div className="pending-meta">@{u.username} • {u.total_wins || 0} wins{u.email && <> • <span style={{ color: 'var(--text-secondary)' }}>{u.email}</span></>}</div>
                   </div>
                 </div>
                 <div className="pending-actions">
@@ -2370,7 +2654,7 @@
       const removeToast = (id) => setToasts(prev => prev.filter(t => t.id !== id));
 
       const weeklyBetsUsed = user?.weekly_bets_count || 0;
-      const weeklyBetsRemaining = 3 - weeklyBetsUsed;
+      const weeklyBetsRemaining = 2 - weeklyBetsUsed;
       const canBet = weeklyBetsRemaining > 0;
 
       // Check for existing session on mount
@@ -2406,55 +2690,34 @@
         };
       }, []);
 
-      const METAVESCO_SERVER_ID = '1413003530931011727';
-
-      const checkMetavescoMembership = async (providerToken) => {
-        if (!providerToken) return false; // No token = can't verify = deny
-        
-        try {
-          const guildsResponse = await fetch('https://discord.com/api/users/@me/guilds', {
-            headers: { 'Authorization': `Bearer ${providerToken}` }
-          });
-          
-          if (guildsResponse.ok) {
-            const guilds = await guildsResponse.json();
-            return guilds.some(g => g.id === METAVESCO_SERVER_ID);
-          }
-          return false; // If API fails, deny
-        } catch (err) {
-          console.error('Error checking Discord guilds:', err);
-          return false; // If error, deny
-        }
-      };
-
       const handleAuthUser = async (session) => {
         const authUser = session.user;
         try {
-          // Get Discord metadata
+          const isDiscordUser = authUser.app_metadata?.provider === 'discord';
           const discordUsername = authUser.user_metadata?.full_name || authUser.user_metadata?.name || authUser.email?.split('@')[0];
           const discordAvatar = authUser.user_metadata?.avatar_url;
           const discordId = authUser.user_metadata?.provider_id;
+          const userEmail = authUser.email;
 
-          // First check if user already exists in our database
-          let { data: existingUser, error: fetchError } = await supabase
-            .from('users')
-            .select('*')
-            .eq('discord_id', discordId)
-            .single();
+          let existingUser = null;
 
-          if (fetchError && fetchError.code !== 'PGRST116') {
-            // Try by username
-            const { data: userByName } = await supabase
-              .from('users')
-              .select('*')
-              .eq('username', discordUsername.toLowerCase())
-              .single();
-            existingUser = userByName;
+          if (isDiscordUser && discordId) {
+            // Discord user: look up by discord_id
+            const { data } = await supabase.from('users').select('*').eq('discord_id', discordId).single();
+            existingUser = data;
+            if (!existingUser) {
+              // Try by username
+              const { data: byName } = await supabase.from('users').select('*').eq('username', discordUsername.toLowerCase()).single();
+              existingUser = byName;
+            }
+          } else {
+            // Email user: look up by email
+            const { data } = await supabase.from('users').select('*').eq('email', userEmail).single();
+            existingUser = data;
           }
 
           if (existingUser) {
-            // EXISTING USER - already verified before
-            // Check if user is banned
+            // EXISTING USER
             if (existingUser.banned) {
               await supabase.auth.signOut();
               setSession(null);
@@ -2463,56 +2726,53 @@
               setInitializing(false);
               return;
             }
-            // Set session and user
             setSession(session);
-            // Update avatar if changed
-            if (existingUser.avatar_url !== discordAvatar) {
-              await supabase
-                .from('users')
-                .update({ avatar_url: discordAvatar })
-                .eq('id', existingUser.id);
+            // Update avatar if Discord user and avatar changed
+            if (isDiscordUser && existingUser.avatar_url !== discordAvatar) {
+              await supabase.from('users').update({ avatar_url: discordAvatar }).eq('id', existingUser.id);
             }
-            setUser({ ...existingUser, avatar_url: discordAvatar, user_metadata: authUser.user_metadata });
+            // Update email if not stored yet
+            if (userEmail && !existingUser.email) {
+              await supabase.from('users').update({ email: userEmail }).eq('id', existingUser.id);
+              existingUser.email = userEmail;
+            }
+            setUser({ ...existingUser, avatar_url: isDiscordUser ? discordAvatar : existingUser.avatar_url, user_metadata: authUser.user_metadata });
           } else {
-            // NEW USER - must verify Discord server membership
-            // provider_token is required for new users
-            if (!session.provider_token) {
-              // No token available - force re-auth
-              await supabase.auth.signOut();
-              setSession(null);
-              setUser(null);
-              setAccessDenied('not_in_server');
-              setInitializing(false);
-              return;
-            }
-
-            // Check guild membership
-            const inMetavesco = await checkMetavescoMembership(session.provider_token);
-            
-            if (!inMetavesco) {
-              await supabase.auth.signOut();
-              setSession(null);
-              setUser(null);
-              setAccessDenied('not_in_server');
-              setInitializing(false);
-              return;
-            }
-
-            // Membership verified - create new user
+            // NEW USER
             setSession(session);
-            const { data: newUser, error: insertError } = await supabase
-              .from('users')
-              .insert([{ 
-                username: discordUsername.toLowerCase(),
-                discord_id: discordId,
-                avatar_url: discordAvatar
-              }])
-              .select()
-              .single();
-
-            if (insertError) throw insertError;
-
-            setUser({ ...newUser, user_metadata: authUser.user_metadata });
+            if (isDiscordUser) {
+              // Discord new user: create account immediately with Discord data
+              const { data: newUser, error: insertError } = await supabase
+                .from('users')
+                .insert([{
+                  username: discordUsername.toLowerCase(),
+                  discord_id: discordId,
+                  avatar_url: discordAvatar,
+                  email: userEmail || null,
+                  tos_accepted_at: new Date().toISOString(),
+                  onboarding_complete: false
+                }])
+                .select()
+                .single();
+              if (insertError) throw insertError;
+              setUser({ ...newUser, user_metadata: authUser.user_metadata });
+            } else {
+              // Email new user: need to pick username first
+              // Create user with temporary username from email
+              const tempUsername = userEmail.split('@')[0].toLowerCase().replace(/[^a-z0-9]/g, '') + Math.floor(Math.random() * 999);
+              const { data: newUser, error: insertError } = await supabase
+                .from('users')
+                .insert([{
+                  username: tempUsername,
+                  email: userEmail,
+                  tos_accepted_at: new Date().toISOString(),
+                  onboarding_complete: false
+                }])
+                .select()
+                .single();
+              if (insertError) throw insertError;
+              setUser({ ...newUser, user_metadata: authUser.user_metadata });
+            }
           }
         } catch (err) {
           console.error('Error handling auth user:', err);
@@ -2741,7 +3001,7 @@
 
       const handleBet = async (marketId, side) => {
         if (!canBet) {
-          addToast('You\'ve used all 3 weekly bets!', 'error');
+          addToast('You\'ve used both daily bets!', 'error');
           return;
         }
 
@@ -2777,7 +3037,7 @@
           setUserBets([...userBets, { user_id: user.id, market_id: marketId, side }]);
           setMarkets(markets.map(m => m.id === marketId ? { ...m, volume: (m.volume || 0) + 1000, yes_percent: newYes, no_percent: newNo } : m));
           setSelectedMarket(null);
-          addToast(`Bet placed on ${side.toUpperCase()}! ${3 - newCount} bets remaining 🎯`);
+          addToast(`Bet placed on ${side.toUpperCase()}! ${2 - newCount} bets remaining 🎯`);
         } catch (err) {
           console.error('Error placing bet:', err);
           addToast('Failed to place bet. Please try again.', 'error');
@@ -3212,49 +3472,15 @@
         return (
           <div className="login-container">
             <div className="login-card" style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>
-                {accessDenied === 'banned' ? '🚫' : '🔒'}
-              </div>
-              <h1 style={{ color: 'var(--text-primary)', marginBottom: '0.5rem' }}>
-                {accessDenied === 'banned' ? 'Account Banned' : 'Access Denied'}
-              </h1>
-              <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem' }}>
-                {accessDenied === 'banned' 
-                  ? 'Your account has been banned from OTCfi Pulse.' 
-                  : 'You must be a member of the Metavesco Discord server to access OTCfi Pulse.'}
-              </p>
-              {accessDenied === 'not_in_server' && (
-                <>
-                  <a 
-                    href="https://discord.gg/nA5sx6PrwX" 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="btn btn-primary"
-                    style={{ marginBottom: '1rem', display: 'inline-block' }}
-                  >
-                    Join Metavesco Discord
-                  </a>
-                  <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '1rem' }}>
-                    After joining, click the button below to verify.
-                  </p>
-                </>
-              )}
+              <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>🚫</div>
+              <h1 style={{ color: 'var(--text-primary)', marginBottom: '0.5rem' }}>Account Banned</h1>
+              <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem' }}>Your account has been banned from OTCfi Pulse.</p>
               <button 
                 className="btn btn-secondary" 
-                onClick={async () => { 
-                  setAccessDenied(null);
-                  // Go directly to Discord login for fresh token
-                  await supabase.auth.signInWithOAuth({
-                    provider: 'discord',
-                    options: {
-                      redirectTo: window.location.origin,
-                      scopes: 'identify email guilds'
-                    }
-                  });
-                }}
+                onClick={() => { setAccessDenied(null); }}
                 style={{ marginTop: '0.5rem' }}
               >
-                {accessDenied === 'not_in_server' ? 'I\'ve Joined - Verify Now' : 'Try Again'}
+                Go Back
               </button>
             </div>
           </div>
@@ -3266,6 +3492,16 @@
         return (
           <>
             <Login />
+            <div className="toast-container">{toasts.map(toast => <Toast key={toast.id} message={toast.message} type={toast.type} onClose={() => removeToast(toast.id)} />)}</div>
+          </>
+        );
+      }
+
+      // Show onboarding if not complete
+      if (!user.onboarding_complete) {
+        return (
+          <>
+            <OnboardingScreen user={user} onComplete={(updatedUser) => setUser(updatedUser)} />
             <div className="toast-container">{toasts.map(toast => <Toast key={toast.id} message={toast.message} type={toast.type} onClose={() => removeToast(toast.id)} />)}</div>
           </>
         );
