@@ -2674,7 +2674,10 @@
       const [dataLoaded, setDataLoaded] = useState(false);
       const [activityLog, setActivityLog] = useState([]);
       const [showActivity, setShowActivity] = useState(false);
-      const [accessDenied, setAccessDenied] = useState(null); // 'not_in_server' or 'banned'
+      const [accessDenied, setAccessDenied] = useState(null); // 'banned'
+      const [showPasswordReset, setShowPasswordReset] = useState(false);
+      const [newPassword, setNewPassword] = useState('');
+      const [resetLoading, setResetLoading] = useState(false);
 
       const addToast = (msg, type = 'success') => setToasts(prev => [...prev, { id: Date.now(), message: msg, type }]);
       const removeToast = (id) => setToasts(prev => prev.filter(t => t.id !== id));
@@ -2699,9 +2702,12 @@
 
         const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
           if (!mounted) return;
-          // Only handle specific events, ignore token refresh and other background events
-          if (event === 'SIGNED_IN') {
-            // Don't set session until after membership check passes
+          if (event === 'PASSWORD_RECOVERY') {
+            // User clicked a password reset link
+            setSession(session);
+            setShowPasswordReset(true);
+            setInitializing(false);
+          } else if (event === 'SIGNED_IN') {
             if (session) handleAuthUser(session);
           } else if (event === 'SIGNED_OUT') {
             setSession(null);
@@ -3509,6 +3515,53 @@
                 Go Back
               </button>
             </div>
+          </div>
+        );
+      }
+
+      // Show password reset screen
+      if (showPasswordReset) {
+        const handlePasswordUpdate = async (e) => {
+          e.preventDefault();
+          if (newPassword.length < 6) return;
+          setResetLoading(true);
+          try {
+            const { error } = await supabase.auth.updateUser({ password: newPassword });
+            if (error) throw error;
+            setShowPasswordReset(false);
+            setNewPassword('');
+            addToast('Password updated successfully!');
+            // Sign out so they can log in fresh
+            await supabase.auth.signOut();
+            setSession(null);
+            setUser(null);
+          } catch (err) {
+            console.error('Password update error:', err);
+            addToast(err.message || 'Failed to update password.', 'error');
+          } finally {
+            setResetLoading(false);
+          }
+        };
+
+        return (
+          <div className="login-container">
+            <div className="login-card">
+              <div className="logo" style={{ justifyContent: 'center', marginBottom: '1.5rem', fontSize: '2rem' }}>
+                <span className="logo-otc">OTC</span><span className="logo-fi">fi</span><span className="logo-pulse">Pulse</span>
+              </div>
+              <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🔑</div>
+              <h2 style={{ marginBottom: '0.5rem' }}>Set New Password</h2>
+              <p className="login-subtitle">Enter your new password below.</p>
+              <form onSubmit={handlePasswordUpdate}>
+                <div className="form-group">
+                  <input type="password" className="form-input" placeholder="New password (min 6 characters)" value={newPassword} onChange={e => setNewPassword(e.target.value)} required minLength={6} />
+                </div>
+                <button className="login-btn" type="submit" disabled={resetLoading || newPassword.length < 6}>
+                  {resetLoading ? 'Updating...' : 'Update Password'}
+                </button>
+              </form>
+            </div>
+            <div className="toast-container">{toasts.map(toast => <Toast key={toast.id} message={toast.message} type={toast.type} onClose={() => removeToast(toast.id)} />)}</div>
           </div>
         );
       }
