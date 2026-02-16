@@ -2567,7 +2567,7 @@
           </div>
           
           {viewBetsMarket && (() => {
-            const marketBets = bets.filter(b => b.market_id === viewBetsMarket.id);
+            const marketBets = (allBets || []).filter(b => b.market_id === viewBetsMarket.id);
             const yesBets = marketBets.filter(b => b.side === 'yes');
             const noBets = marketBets.filter(b => b.side === 'no');
             const getBetterName = (userId) => {
@@ -2990,6 +2990,12 @@
             .select('*')
             .eq('user_id', user.id);
           setUserBets(betsData || []);
+
+          // Fetch all bets for admin bet viewer
+          if (user.is_admin) {
+            const { data: allBetsData } = await supabase.from('bets').select('*');
+            setAllBets(allBetsData || []);
+          }
 
           // Fetch activity log
           const { data: activityData } = await supabase
