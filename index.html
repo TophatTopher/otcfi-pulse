@@ -1892,6 +1892,7 @@
       const [editDisplayName, setEditDisplayName] = useState(profileUser?.display_name || '');
       const [editAvatarUrl, setEditAvatarUrl] = useState(profileUser?.custom_avatar_url || '');
       const [editWallet, setEditWallet] = useState(profileUser?.wallet_address || '');
+      const [editEmail, setEditEmail] = useState(profileUser?.email || '');
 
       const isOwnProfile = currentUser.id === profileUser?.id;
       const isAdmin = currentUser.is_admin;
@@ -1987,7 +1988,8 @@
         await onUpdateProfile({
           display_name: editDisplayName || null,
           custom_avatar_url: editAvatarUrl || null,
-          wallet_address: editWallet || null
+          wallet_address: editWallet || null,
+          email: editEmail || null
         });
         setSaving(false);
         setShowEditModal(false);
@@ -2273,6 +2275,17 @@
                       onChange={(e) => setEditWallet(e.target.value)}
                     />
                     <p style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginTop: '0.25rem' }}>Only visible to you and admins</p>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Email Address</label>
+                    <input 
+                      type="email" 
+                      className="form-input" 
+                      placeholder="Enter your email for updates" 
+                      value={editEmail} 
+                      onChange={(e) => setEditEmail(e.target.value)}
+                    />
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginTop: '0.25rem' }}>For platform updates and Metavesco news. Only visible to admins.</p>
                   </div>
                 </div>
                 <div className="modal-actions">
