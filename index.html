@@ -3253,56 +3253,13 @@
         try {
           const market = markets.find(m => m.id === id);
           
-          // Update market status
-          const { error } = await supabase
-            .from('markets')
-            .update({ status: 'resolved', winner, resolved_at: new Date().toISOString() })
-            .eq('id', id);
+          // Use server-side function to resolve atomically
+          const { data, error } = await supabase.rpc('resolve_market', {
+            market_id: id,
+            winning_side: winner
+          });
 
           if (error) throw error;
-
-          // Get all bets for this market
-          const { data: marketBets } = await supabase
-            .from('bets')
-            .select('*')
-            .eq('market_id', id);
-
-          // Update each bet's result and user stats
-          if (marketBets && marketBets.length > 0) {
-            for (const bet of marketBets) {
-              const won = bet.side === winner;
-              
-              // Update bet result
-              await supabase
-                .from('bets')
-                .update({ result: won ? 'won' : 'lost' })
-                .eq('id', bet.id);
-
-              // Get current user stats
-              const { data: userData } = await supabase
-                .from('users')
-                .select('total_bets, total_wins, current_streak, best_streak')
-                .eq('id', bet.user_id)
-                .single();
-
-              if (userData) {
-                const newTotalBets = (userData.total_bets || 0) + 1;
-                const newTotalWins = won ? (userData.total_wins || 0) + 1 : (userData.total_wins || 0);
-                const newCurrentStreak = won ? (userData.current_streak || 0) + 1 : 0;
-                const newBestStreak = Math.max(newCurrentStreak, userData.best_streak || 0);
-
-                await supabase
-                  .from('users')
-                  .update({
-                    total_bets: newTotalBets,
-                    total_wins: newTotalWins,
-                    current_streak: newCurrentStreak,
-                    best_streak: newBestStreak
-                  })
-                  .eq('id', bet.user_id);
-              }
-            }
-          }
 
           // Log activity
           const activityMessage = `${market.ticker ? '$' + market.ticker : market.title.substring(0, 25)} resolved - ${winner.toUpperCase()} wins!`;
@@ -3322,8 +3279,18 @@
             timestamp: new Date().toISOString()
           });
 
-          setMarkets(prev => prev.filter(m => m.id !== id));
-          addToast(`Market resolved! ${winner.toUpperCase()} wins!`);
+          // Refresh data
+          const { data: marketsData } = await supabase.from('markets').select('*').order('created_at', { ascending: false });
+          if (marketsData) setMarkets(marketsData);
+          
+          if (user.is_admin) {
+            const { data: allBetsData } = await supabase.from('bets').select('*');
+            if (allBetsData) setAllBets(allBetsData);
+            const { data: usersData } = await supabase.from('users').select('*');
+            if (usersData) setAllUsers(usersData);
+          }
+
+          addToast(`Market resolved! ${winner.toUpperCase()} wins! (${data?.bets_updated || 0} bets updated)`);
         } catch (err) {
           console.error('Error resolving market:', err);
           addToast('Failed to resolve market.', 'error');
