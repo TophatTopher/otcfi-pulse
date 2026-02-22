@@ -303,12 +303,13 @@
       font-family: inherit;
       transition: all 0.2s;
     }
-    .bet-btn-yes { background: var(--accent-purple); border: none; color: white; }
-    .bet-btn-yes:hover:not(:disabled) { background: var(--accent-purple-dim); }
+    .bet-btn-yes { background: transparent; border: 1px solid var(--border-light); color: var(--text-primary); }
+    .bet-btn-yes:hover:not(:disabled) { background: rgba(34, 197, 94, 0.15); border-color: var(--accent-green); }
+    .bet-btn-yes.selected { background: var(--accent-green); border-color: var(--accent-green); color: white; }
     .bet-btn-no { background: transparent; border: 1px solid var(--border-light); color: var(--text-primary); }
-    .bet-btn-no:hover:not(:disabled) { background: var(--bg-card); }
+    .bet-btn-no:hover:not(:disabled) { background: rgba(239, 68, 68, 0.15); border-color: var(--accent-red); }
+    .bet-btn-no.selected { background: var(--accent-red); border-color: var(--accent-red); color: white; }
     .bet-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-    .bet-btn.selected { box-shadow: 0 0 0 2px var(--accent-purple); }
     .wager-info { background: var(--bg-input); border-radius: 8px; padding: 1rem; margin-bottom: 1rem; }
     .wager-info-row { display: flex; justify-content: space-between; font-size: 0.9rem; margin-bottom: 0.5rem; }
     .wager-info-row:last-child { margin-bottom: 0; }
@@ -1358,7 +1359,7 @@
     }
 
     function MarketDetail({ market, onClose, onBet, canBet, weeklyBetsRemaining, userBet }) {
-      const [selectedSide, setSelectedSide] = useState('yes');
+      const [selectedSide, setSelectedSide] = useState(null);
       const [showConfirm, setShowConfirm] = useState(false);
       const [countdown, setCountdown] = useState(formatCountdown(market.ends_at));
       const isPriceMarket = market.category === 'Price';
@@ -1418,10 +1419,12 @@
                         <button className={`bet-btn bet-btn-yes ${selectedSide === 'yes' ? 'selected' : ''}`} onClick={() => setSelectedSide('yes')} disabled={!canBet}>Bet YES</button>
                         <button className={`bet-btn bet-btn-no ${selectedSide === 'no' ? 'selected' : ''}`} onClick={() => setSelectedSide('no')} disabled={!canBet}>Bet NO</button>
                       </div>
-                      <div className="wager-info">
-                        <div className="wager-info-row"><span className="wager-info-label">Selected side</span><span className={`wager-info-value ${selectedSide}`}>{selectedSide.toUpperCase()}</span></div>
-                      </div>
-                      <button className="place-wager-btn" onClick={() => setShowConfirm(true)} disabled={!canBet}>Place Wager</button>
+                      {selectedSide && (
+                        <div className="wager-info">
+                          <div className="wager-info-row"><span className="wager-info-label">Selected side</span><span className={`wager-info-value ${selectedSide}`}>{selectedSide.toUpperCase()}</span></div>
+                        </div>
+                      )}
+                      <button className="place-wager-btn" onClick={() => setShowConfirm(true)} disabled={!canBet || !selectedSide}>Place Wager</button>
                     </>
                   )}
                   <p className="demo-notice">🚀 Alpha Phase: Free bets! 2 bets per day.</p>
