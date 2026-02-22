@@ -1383,6 +1383,10 @@
     function MarketDetail({ market, onClose, onBet, canBet, weeklyBetsRemaining, userBet, onRequestResolution, hasRequestedResolution }) {
       const [selectedSide, setSelectedSide] = useState(null);
       const [showConfirm, setShowConfirm] = useState(false);
+      const [showResolutionModal, setShowResolutionModal] = useState(false);
+      const [resolutionReason, setResolutionReason] = useState('');
+      const [resolutionLink, setResolutionLink] = useState('');
+      const [submittingResolution, setSubmittingResolution] = useState(false);
       const [countdown, setCountdown] = useState(formatCountdown(market.ends_at));
       const isPriceMarket = market.category === 'Price';
 
@@ -1472,7 +1476,7 @@
                       </p>
                       <button 
                         className="request-resolution-btn"
-                        onClick={() => onRequestResolution(market.id)}
+                        onClick={() => setShowResolutionModal(true)}
                         disabled={hasRequestedResolution}
                       >
                         {hasRequestedResolution ? '✓ Resolution Requested' : '⚡ Request Early Resolution'}
@@ -1498,6 +1502,63 @@
               onConfirm={handleConfirmWager}
               onCancel={() => setShowConfirm(false)}
             />
+          )}
+
+          {showResolutionModal && (
+            <div className="modal-overlay" onClick={() => setShowResolutionModal(false)}>
+              <div className="create-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '450px' }}>
+                <div className="create-modal-header">
+                  <h2 className="create-modal-title">⚡ Request Early Resolution</h2>
+                  <button className="close-btn" onClick={() => setShowResolutionModal(false)}>×</button>
+                </div>
+                <div className="create-modal-body">
+                  <p style={{ color: 'var(--text-secondary)', marginBottom: '1rem', fontSize: '0.9rem' }}>
+                    If you believe this market's outcome is already determined, provide evidence and we'll review it for early resolution.
+                  </p>
+                  <div className="form-group">
+                    <label className="form-label">Why should this resolve now? *</label>
+                    <textarea 
+                      className="form-textarea" 
+                      placeholder="e.g., The price already hit the target on Feb 20th..."
+                      value={resolutionReason}
+                      onChange={(e) => setResolutionReason(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Supporting Link (optional)</label>
+                    <input 
+                      type="url" 
+                      className="form-input" 
+                      placeholder="https://otcmarkets.com/stock/..."
+                      value={resolutionLink}
+                      onChange={(e) => setResolutionLink(e.target.value)}
+                    />
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginTop: '0.25rem' }}>
+                      Link to chart, news article, or other proof
+                    </p>
+                  </div>
+                </div>
+                <div className="create-modal-footer">
+                  <button className="btn btn-secondary" onClick={() => setShowResolutionModal(false)}>Cancel</button>
+                  <button 
+                    className="btn btn-primary" 
+                    style={{ width: 'auto', background: 'var(--accent-orange)' }}
+                    disabled={!resolutionReason.trim() || submittingResolution}
+                    onClick={async () => {
+                      setSubmittingResolution(true);
+                      await onRequestResolution(market.id, resolutionReason, resolutionLink);
+                      setSubmittingResolution(false);
+                      setShowResolutionModal(false);
+                      setResolutionReason('');
+                      setResolutionLink('');
+                    }}
+                  >
+                    {submittingResolution ? 'Submitting...' : 'Submit Request'}
+                  </button>
+                </div>
+              </div>
+            </div>
           )}
         </>
       );
@@ -2381,7 +2442,7 @@
       );
     }
 
-    function AdminPage({ pendingPredictions, onApprove, onReject, onEditPending, markets, onResolve, onEditMarket, allUsers, onToggleAdmin, onBanUser, onUnbanUser, onViewProfile, allBets, loading }) {
+    function AdminPage({ pendingPredictions, onApprove, onReject, onEditPending, markets, onResolve, onEditMarket, allUsers, onToggleAdmin, onBanUser, onUnbanUser, onViewProfile, allBets, loading, resolutionRequests }) {
       const [userSearch, setUserSearch] = useState('');
       const [banConfirm, setBanConfirm] = useState(null);
       const [editItem, setEditItem] = useState(null);
@@ -2543,12 +2604,58 @@
               </div>
             ))}
           </div>
+
+          {/* Resolution Requests Section */}
+          {resolutionRequests && resolutionRequests.length > 0 && (
+            <div className="admin-section" style={{ borderColor: 'rgba(245, 158, 11, 0.3)' }}>
+              <h3 className="admin-section-title">⚡ Resolution Requests ({resolutionRequests.length})</h3>
+              {resolutionRequests.map((req, idx) => {
+                const market = markets.find(m => m.id === req.market_id);
+                return (
+                  <div key={idx} className="pending-item" style={{ borderColor: 'rgba(245, 158, 11, 0.3)' }}>
+                    <div className="pending-info">
+                      <div className="pending-title">
+                        {req.market_ticker ? `$${req.market_ticker} - ` : ''}{req.market_title || market?.title}
+                        <span className="resolution-requests-badge" style={{ marginLeft: '0.5rem' }}>REQUESTED</span>
+                      </div>
+                      <div className="pending-meta">
+                        Requested by <strong>{req.username}</strong> • {formatTimeAgo(req.created_at)}
+                      </div>
+                      <div style={{ marginTop: '0.5rem', padding: '0.5rem', background: 'var(--bg-secondary)', borderRadius: '6px', fontSize: '0.85rem' }}>
+                        <strong style={{ color: 'var(--accent-orange)' }}>Reason:</strong> {req.reason}
+                      </div>
+                      {req.link && (
+                        <div style={{ marginTop: '0.25rem', fontSize: '0.8rem' }}>
+                          <strong style={{ color: 'var(--accent-cyan)' }}>Link:</strong>{' '}
+                          <a href={req.link} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent-cyan)' }}>
+                            {req.link.length > 50 ? req.link.substring(0, 50) + '...' : req.link}
+                          </a>
+                        </div>
+                      )}
+                    </div>
+                    <div className="pending-actions">
+                      <button className="btn-sm" style={{ background: 'var(--bg-secondary)', color: 'var(--accent-cyan)' }} onClick={() => setViewBetsMarket(market)}>👥 Bets</button>
+                      <button className="btn-sm btn-approve" onClick={() => onResolve(req.market_id, 'yes')}>YES Won</button>
+                      <button className="btn-sm btn-reject" onClick={() => onResolve(req.market_id, 'no')}>NO Won</button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
           <div className="admin-section">
             <h3 className="admin-section-title">⚠️ Awaiting Resolution ({overdueMarkets.length})</h3>
-            {overdueMarkets.length === 0 ? <p style={{ color: 'var(--text-muted)' }}>No overdue markets</p> : overdueMarkets.map(market => (
+            {overdueMarkets.length === 0 ? <p style={{ color: 'var(--text-muted)' }}>No overdue markets</p> : overdueMarkets.map(market => {
+              const hasRequest = resolutionRequests?.some(r => r.market_id === market.id);
+              return (
               <div key={market.id} className="pending-item overdue-item">
                 <div className="pending-info">
-                  <div className="pending-title">{market.ticker ? `${market.ticker} - ` : ''}{market.title} <span className="overdue-badge">OVERDUE</span></div>
+                  <div className="pending-title">
+                    {market.ticker ? `$${market.ticker} - ` : ''}{market.title} 
+                    <span className="overdue-badge">OVERDUE</span>
+                    {hasRequest && <span className="resolution-requests-badge">REQUESTED</span>}
+                  </div>
                   <div className="pending-meta">{market.category} • Ended {formatDate(market.ends_at)} • Vol: {market.volume?.toLocaleString() || 0}</div>
                 </div>
                 <div className="pending-actions">
@@ -2558,14 +2665,19 @@
                   <button className="btn-sm btn-reject" onClick={() => onResolve(market.id, 'no')}>NO Won</button>
                 </div>
               </div>
-            ))}
+            )})}
           </div>
           <div className="admin-section">
             <h3 className="admin-section-title">✅ Resolve Active Markets ({upcomingMarkets.length})</h3>
-            {upcomingMarkets.length === 0 ? <p style={{ color: 'var(--text-muted)' }}>No active markets</p> : upcomingMarkets.map(market => (
-              <div key={market.id} className="pending-item">
+            {upcomingMarkets.length === 0 ? <p style={{ color: 'var(--text-muted)' }}>No active markets</p> : upcomingMarkets.map(market => {
+              const hasRequest = resolutionRequests?.some(r => r.market_id === market.id);
+              return (
+              <div key={market.id} className={`pending-item ${hasRequest ? 'overdue-item' : ''}`} style={hasRequest ? { borderColor: 'rgba(245, 158, 11, 0.3)' } : {}}>
                 <div className="pending-info">
-                  <div className="pending-title">{market.ticker ? `${market.ticker} - ` : ''}{market.title}</div>
+                  <div className="pending-title">
+                    {market.ticker ? `$${market.ticker} - ` : ''}{market.title}
+                    {hasRequest && <span className="resolution-requests-badge">REQUESTED</span>}
+                  </div>
                   <div className="pending-meta">{market.category} • Ends {formatDate(market.ends_at)} • Vol: {market.volume?.toLocaleString() || 0}</div>
                 </div>
                 <div className="pending-actions">
@@ -2575,7 +2687,7 @@
                   <button className="btn-sm btn-reject" onClick={() => onResolve(market.id, 'no')}>NO Won</button>
                 </div>
               </div>
-            ))}
+            )})}
           </div>
           <div className="admin-section">
             <h3 className="admin-section-title">👥 Manage Users ({allUsers.length})</h3>
@@ -3260,29 +3372,35 @@
         }
       };
 
-      const handleRequestResolution = async (marketId) => {
+      const handleRequestResolution = async (marketId, reason, link) => {
         try {
           // Check if user already requested
-          if (resolutionRequests.includes(marketId)) {
+          if (resolutionRequests.some(r => r.market_id === marketId)) {
             addToast('You already requested resolution for this market', 'error');
             return;
           }
 
-          // Store request in database
-          const { error } = await supabase
-            .from('resolution_requests')
-            .insert([{ market_id: marketId, user_id: user.id }]);
-
-          if (error) {
-            // Table might not exist yet, just track locally
-            console.log('Resolution requests table may not exist:', error);
-          }
-
-          // Track locally
-          setResolutionRequests(prev => [...prev, marketId]);
-          
-          // Get market details
           const market = markets.find(m => m.id === marketId);
+          
+          const requestData = {
+            market_id: marketId,
+            user_id: user.id,
+            username: user.display_name || user.username,
+            reason: reason,
+            link: link || null,
+            created_at: new Date().toISOString(),
+            market_title: market?.title,
+            market_ticker: market?.ticker
+          };
+
+          // Store request in database (will fail silently if table doesn't exist)
+          await supabase
+            .from('resolution_requests')
+            .insert([requestData])
+            .catch(err => console.log('Resolution requests table may not exist:', err));
+
+          // Track locally for UI updates
+          setResolutionRequests(prev => [...prev, requestData]);
           
           // Notify admins via Discord
           sendDiscordNotification(null, {
@@ -3290,7 +3408,8 @@
             description: `**${user.display_name || user.username}** requested early resolution:\n\n${market?.ticker ? '$' + market.ticker + ' - ' : ''}${market?.title}`,
             color: 0xf59e0b,
             fields: [
-              { name: 'Market ID', value: marketId.substring(0, 8) + '...', inline: true },
+              { name: 'Reason', value: reason.substring(0, 200) + (reason.length > 200 ? '...' : ''), inline: false },
+              { name: 'Link', value: link || 'None provided', inline: true },
               { name: 'Scheduled End', value: formatDate(market?.ends_at), inline: true }
             ],
             footer: { text: 'OTCfi Pulse • Admin Action Needed' },
@@ -3793,8 +3912,8 @@
           {activePage === 'portfolio' && <PortfolioPage userBets={userBets} markets={markets} />}
           {activePage === 'leaderboard' && <LeaderboardPage leaderboard={leaderboard} onViewProfile={handleViewProfile} loading={loading} />}
           {activePage === 'profile' && <ProfilePage profileUser={profileUser} currentUser={user} userBets={allBets} markets={markets} onUpdateProfile={handleUpdateProfile} onViewProfile={handleViewProfile} userSubmissions={userSubmissions} loading={loading} />}
-          {activePage === 'admin' && user.is_admin && <AdminPage pendingPredictions={pendingPredictions} onApprove={handleApprovePrediction} onReject={handleRejectPrediction} onEditPending={handleEditPending} markets={markets} onResolve={handleResolveMarket} onEditMarket={handleEditMarket} allUsers={allUsers} onToggleAdmin={handleToggleAdmin} onBanUser={handleBanUser} onUnbanUser={handleUnbanUser} onViewProfile={handleViewProfile} allBets={allBets} loading={loading} />}
-          {selectedMarket && <MarketDetail market={selectedMarket} onClose={() => { setSelectedMarket(null); window.history.pushState({}, '', '/markets'); }} onBet={handleBet} canBet={canBet} weeklyBetsRemaining={weeklyBetsRemaining} userBet={currentUserBet} onRequestResolution={handleRequestResolution} hasRequestedResolution={resolutionRequests.includes(selectedMarket.id)} />}
+          {activePage === 'admin' && user.is_admin && <AdminPage pendingPredictions={pendingPredictions} onApprove={handleApprovePrediction} onReject={handleRejectPrediction} onEditPending={handleEditPending} markets={markets} onResolve={handleResolveMarket} onEditMarket={handleEditMarket} allUsers={allUsers} onToggleAdmin={handleToggleAdmin} onBanUser={handleBanUser} onUnbanUser={handleUnbanUser} onViewProfile={handleViewProfile} allBets={allBets} loading={loading} resolutionRequests={resolutionRequests} />}
+          {selectedMarket && <MarketDetail market={selectedMarket} onClose={() => { setSelectedMarket(null); window.history.pushState({}, '', '/markets'); }} onBet={handleBet} canBet={canBet} weeklyBetsRemaining={weeklyBetsRemaining} userBet={currentUserBet} onRequestResolution={handleRequestResolution} hasRequestedResolution={resolutionRequests.some(r => r.market_id === selectedMarket.id)} />}
           {showCreateModal && <CreateModal onClose={() => setShowCreateModal(false)} onSubmit={handleCreatePrediction} user={user} />}
           <div className="toast-container">{toasts.map(toast => <Toast key={toast.id} message={toast.message} type={toast.type} onClose={() => removeToast(toast.id)} />)}</div>
         </AppContext.Provider>
