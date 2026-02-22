@@ -2442,7 +2442,7 @@
       );
     }
 
-    function AdminPage({ pendingPredictions, onApprove, onReject, onEditPending, markets, onResolve, onEditMarket, allUsers, onToggleAdmin, onBanUser, onUnbanUser, onViewProfile, allBets, loading, resolutionRequests }) {
+    function AdminPage({ pendingPredictions, onApprove, onReject, onEditPending, markets, onResolve, onEditMarket, allUsers, onToggleAdmin, onBanUser, onUnbanUser, onViewProfile, allBets, loading, resolutionRequests, onDismissRequest }) {
       const [userSearch, setUserSearch] = useState('');
       const [banConfirm, setBanConfirm] = useState(null);
       const [editItem, setEditItem] = useState(null);
@@ -2634,6 +2634,7 @@
                       )}
                     </div>
                     <div className="pending-actions">
+                      <button className="btn-sm" style={{ background: 'var(--bg-secondary)', color: 'var(--text-muted)' }} onClick={() => onDismissRequest(req.market_id)}>✕ Dismiss</button>
                       <button className="btn-sm" style={{ background: 'var(--bg-secondary)', color: 'var(--accent-cyan)' }} onClick={() => setViewBetsMarket(market)}>👥 Bets</button>
                       <button className="btn-sm btn-approve" onClick={() => onResolve(req.market_id, 'yes')}>YES Won</button>
                       <button className="btn-sm btn-reject" onClick={() => onResolve(req.market_id, 'no')}>NO Won</button>
@@ -3426,6 +3427,20 @@
         }
       };
 
+      const handleDismissRequest = async (marketId) => {
+        // Remove from local state
+        setResolutionRequests(prev => prev.filter(r => r.market_id !== marketId));
+        
+        // Remove from database if it exists there
+        await supabase
+          .from('resolution_requests')
+          .delete()
+          .eq('market_id', marketId)
+          .catch(err => console.log('Could not delete from DB:', err));
+        
+        addToast('Request dismissed');
+      };
+
       const handleCreatePrediction = async (data) => {
         try {
           const { data: newPred, error } = await supabase
@@ -3915,7 +3930,7 @@
           {activePage === 'portfolio' && <PortfolioPage userBets={userBets} markets={markets} />}
           {activePage === 'leaderboard' && <LeaderboardPage leaderboard={leaderboard} onViewProfile={handleViewProfile} loading={loading} />}
           {activePage === 'profile' && <ProfilePage profileUser={profileUser} currentUser={user} userBets={allBets} markets={markets} onUpdateProfile={handleUpdateProfile} onViewProfile={handleViewProfile} userSubmissions={userSubmissions} loading={loading} />}
-          {activePage === 'admin' && user.is_admin && <AdminPage pendingPredictions={pendingPredictions} onApprove={handleApprovePrediction} onReject={handleRejectPrediction} onEditPending={handleEditPending} markets={markets} onResolve={handleResolveMarket} onEditMarket={handleEditMarket} allUsers={allUsers} onToggleAdmin={handleToggleAdmin} onBanUser={handleBanUser} onUnbanUser={handleUnbanUser} onViewProfile={handleViewProfile} allBets={allBets} loading={loading} resolutionRequests={resolutionRequests} />}
+          {activePage === 'admin' && user.is_admin && <AdminPage pendingPredictions={pendingPredictions} onApprove={handleApprovePrediction} onReject={handleRejectPrediction} onEditPending={handleEditPending} markets={markets} onResolve={handleResolveMarket} onEditMarket={handleEditMarket} allUsers={allUsers} onToggleAdmin={handleToggleAdmin} onBanUser={handleBanUser} onUnbanUser={handleUnbanUser} onViewProfile={handleViewProfile} allBets={allBets} loading={loading} resolutionRequests={resolutionRequests} onDismissRequest={handleDismissRequest} />}
           {selectedMarket && <MarketDetail market={selectedMarket} onClose={() => { setSelectedMarket(null); window.history.pushState({}, '', '/markets'); }} onBet={handleBet} canBet={canBet} weeklyBetsRemaining={weeklyBetsRemaining} userBet={currentUserBet} onRequestResolution={handleRequestResolution} hasRequestedResolution={resolutionRequests.some(r => r.market_id === selectedMarket.id)} />}
           {showCreateModal && <CreateModal onClose={() => setShowCreateModal(false)} onSubmit={handleCreatePrediction} user={user} />}
           <div className="toast-container">{toasts.map(toast => <Toast key={toast.id} message={toast.message} type={toast.type} onClose={() => removeToast(toast.id)} />)}</div>
