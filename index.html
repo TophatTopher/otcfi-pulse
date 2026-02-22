@@ -31,6 +31,37 @@
       --border-color: #252532;
       --border-light: #2a2a3a;
     }
+    
+    /* Light Mode */
+    [data-theme="light"] {
+      --bg-primary: #f5f5f7;
+      --bg-secondary: #ffffff;
+      --bg-card: #ffffff;
+      --bg-card-hover: #f0f0f2;
+      --bg-input: #f0f0f2;
+      --text-primary: #1a1a2e;
+      --text-secondary: #4a4a5a;
+      --text-muted: #6b7280;
+      --border-color: #e0e0e5;
+      --border-light: #d0d0d8;
+    }
+    
+    .theme-toggle {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 0.5rem;
+      cursor: pointer;
+      font-size: 1.1rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+    }
+    .theme-toggle:hover {
+      border-color: var(--accent-purple);
+      background: var(--bg-card-hover);
+    }
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
@@ -1290,7 +1321,7 @@
       );
     }
 
-    function Header({ user, activePage, setActivePage, onLogout, onViewProfile, onNavigate }) {
+    function Header({ user, activePage, setActivePage, onLogout, onViewProfile, onNavigate, theme, onToggleTheme }) {
       const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
       const avatarUrl = user.custom_avatar_url || user.avatar_url || user.user_metadata?.avatar_url;
       const displayName = user.display_name || user.username || user.user_metadata?.full_name || user.user_metadata?.name || 'User';
@@ -1330,6 +1361,9 @@
                   <span style={{ color: 'var(--text-primary)', fontWeight: 600, fontSize: '0.9rem' }}>{displayName}</span>
                   <span style={{ color: '#9213de', fontSize: '0.65rem', fontWeight: 500 }}>View Profile</span>
                 </div>
+              </button>
+              <button className="theme-toggle" onClick={onToggleTheme} title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}>
+                {theme === 'dark' ? '☀️' : '🌙'}
               </button>
               <button className="user-btn" onClick={() => setShowLogoutConfirm(true)} title="Logout">❌</button>
             </div>
@@ -2893,6 +2927,22 @@
       const [session, setSession] = useState(null);
       const [user, setUser] = useState(null);
       
+      // Theme: Load from localStorage or default to dark
+      const [theme, setTheme] = useState(() => {
+        const saved = localStorage.getItem('otcfi-theme');
+        return saved || 'dark';
+      });
+      
+      // Apply theme to document
+      useEffect(() => {
+        document.documentElement.setAttribute('data-theme', theme);
+        localStorage.setItem('otcfi-theme', theme);
+      }, [theme]);
+      
+      const toggleTheme = () => {
+        setTheme(prev => prev === 'dark' ? 'light' : 'dark');
+      };
+      
       // URL Routing: Parse initial page from URL path
       const getInitialPage = () => {
         const path = window.location.pathname.replace('/', '');
@@ -3924,7 +3974,7 @@
 
       return (
         <AppContext.Provider value={{ canBet, weeklyBetsUsed, weeklyBetsRemaining, userBets }}>
-          <Header user={user} activePage={activePage} setActivePage={setActivePage} onLogout={handleLogout} onViewProfile={handleViewProfile} onNavigate={navigateTo} />
+          <Header user={user} activePage={activePage} setActivePage={setActivePage} onLogout={handleLogout} onViewProfile={handleViewProfile} onNavigate={navigateTo} theme={theme} onToggleTheme={toggleTheme} />
           {activePage === 'markets' && <MarketsPage markets={markets} onMarketClick={(market) => { setSelectedMarket(market); window.history.pushState({}, '', '/market/' + market.id); }} onCreateClick={() => setShowCreateModal(true)} canBet={canBet} weeklyBetsUsed={weeklyBetsUsed} weeklyBetsRemaining={weeklyBetsRemaining} loading={loading} activityLog={activityLog} showActivity={showActivity} onToggleActivity={() => setShowActivity(!showActivity)} isAdmin={user.is_admin} onClearActivity={handleClearActivity} />}
           {activePage === 'history' && <HistoryPage markets={markets} loading={loading} isAdmin={user.is_admin} onClearHistory={handleClearHistory} />}
           {activePage === 'portfolio' && <PortfolioPage userBets={userBets} markets={markets} />}
