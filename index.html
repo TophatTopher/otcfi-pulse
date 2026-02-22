@@ -3388,19 +3388,22 @@
             username: user.display_name || user.username,
             reason: reason,
             link: link || null,
-            created_at: new Date().toISOString(),
             market_title: market?.title,
             market_ticker: market?.ticker
           };
 
-          // Store request in database (will fail silently if table doesn't exist)
-          await supabase
+          // Store request in database
+          const { error } = await supabase
             .from('resolution_requests')
-            .insert([requestData])
-            .catch(err => console.log('Resolution requests table may not exist:', err));
+            .insert([requestData]);
 
-          // Track locally for UI updates
-          setResolutionRequests(prev => [...prev, requestData]);
+          if (error) {
+            console.error('DB Error:', error);
+            // Still continue - we'll track locally and send Discord
+          }
+
+          // Track locally for UI updates (add created_at for display)
+          setResolutionRequests(prev => [...prev, { ...requestData, created_at: new Date().toISOString() }]);
           
           // Notify admins via Discord
           sendDiscordNotification(null, {
